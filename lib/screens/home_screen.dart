@@ -292,7 +292,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('标签打印'),
+        title: const Text('标签助手'),
         actions: [
           IconButton(
             tooltip: '打印历史',

@@ -43,7 +43,7 @@ void main() {
     await tester.pumpWidget(PrinterApp(controller: controller));
     await tester.pumpAndSettle();
 
-    expect(find.text('标签打印'), findsWidgets);
+    expect(find.text('标签助手'), findsWidgets);
     expect(find.text('扫描配件码'), findsOneWidget);
     expect(find.text('当前产品编号'), findsOneWidget);
     expect(find.text('ADM32672805CTX6O60001'), findsOneWidget);

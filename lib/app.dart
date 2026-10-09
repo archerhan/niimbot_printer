@@ -15,7 +15,7 @@ class PrinterApp extends StatelessWidget {
     return AppScope(
       controller: controller,
       child: const ShadApp(
-        title: '标签打印',
+        title: '标签助手',
         debugShowCheckedModeBanner: false,
         home: HomeScreen(),
       ),
