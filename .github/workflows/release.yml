@@ -1,0 +1,103 @@
+name: Release APK
+
+# 触发条件：推送形如 v1.0.0+1 的 tag（版本号+构建号）
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build & Release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.44.2'
+          channel: stable
+          cache: true
+
+      - name: Flutter pub get
+        run: flutter pub get
+
+      - name: Analyze
+        run: flutter analyze
+
+      - name: Test
+        run: flutter test
+
+      - name: 校验签名密钥
+        run: |
+          if [ -z "${{ secrets.KEYSTORE_BASE64 }}" ]; then
+            echo "::error::缺少 KEYSTORE_BASE64 等签名密钥，请在仓库 Secrets 中配置后再打 tag。"
+            exit 1
+          fi
+
+      - name: 还原签名密钥
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+        run: echo "$KEYSTORE_BASE64" | base64 --decode > android/app/printer-release.jks
+
+      - name: 写入 key.properties
+        env:
+          STORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+        run: |
+          cat > android/key.properties <<EOF
+          storePassword=$STORE_PASSWORD
+          keyPassword=$KEY_PASSWORD
+          keyAlias=$KEY_ALIAS
+          storeFile=printer-release.jks
+          EOF
+
+      - name: 解析版本号与构建号
+        id: version
+        run: |
+          TAG="${GITHUB_REF_NAME}"     # 例如 v1.0.0+1
+          VERSION="${TAG#v}"           # 1.0.0+1
+          NAME="${VERSION%%+*}"        # 1.0.0
+          BUILD="${VERSION##*+}"       # 1
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "name=$NAME" >> "$GITHUB_OUTPUT"
+          echo "build=$BUILD" >> "$GITHUB_OUTPUT"
+          echo "版本名: $NAME, 构建号: $BUILD"
+
+      - name: 构建 release APK（arm64-v8a）
+        run: |
+          flutter build apk --release \
+            --target-platform android-arm64 \
+            --build-name ${{ steps.version.outputs.name }} \
+            --build-number ${{ steps.version.outputs.build }}
+
+      - name: 重命名产物
+        run: |
+          mkdir -p dist
+          cp build/app/outputs/flutter-apk/app-release.apk \
+             "dist/label-printer-${{ steps.version.outputs.tag }}.apk"
+
+      - name: 上传产物（Actions Artifacts）
+        uses: actions/upload-artifact@v4
+        with:
+          name: label-printer-${{ steps.version.outputs.tag }}
+          path: dist/*.apk
+
+      - name: 创建 Release 并附带 APK
+        uses: softprops/action-gh-release@v2
+        with:
+          name: ${{ steps.version.outputs.tag }}
+          files: dist/*.apk
+          generate_release_notes: true

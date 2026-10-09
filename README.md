@@ -34,6 +34,11 @@ flutter analyze
 flutter build apk --release --target-platform android-arm64
 ```
 
+## 自动打包与发布
+
+推送 `v1.0.0+1` 形式的 tag 会自动触发 GitHub Actions 打包并创建 Release，
+详见 [docs/发布流程.md](docs/发布流程.md)。
+
 产物位于 `build/app/outputs/flutter-apk/app-release.apk`。
 
 APK 仅包含 **arm64-v8a** 一个 ABI（约 27MB）：
