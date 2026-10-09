@@ -19,8 +19,8 @@ android {
         applicationId = "com.archerhan.printer"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
-        // B1 蓝牙打印与扫码插件要求 API 21 及以上
-        minSdk = 21
+        // Flutter 3.44 默认 minSdk = 24，满足蓝牙打印与扫码插件要求
+        minSdk = flutter.minSdkVersion
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName

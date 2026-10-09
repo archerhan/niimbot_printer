@@ -7,6 +7,7 @@ import 'package:shadcn_ui/shadcn_ui.dart';
 import '../core/code_generator.dart';
 import '../core/label_job.dart';
 import '../models/print_record.dart';
+import '../services/permission_service.dart';
 import '../state/app_controller.dart';
 import '../state/app_scope.dart';
 import '../widgets/app_dialogs.dart';
@@ -28,6 +29,19 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Future<void> _connect() async {
     final controller = AppScope.of(context);
+
+    final granted = await const PermissionService().ensureBluetooth();
+    if (!granted) {
+      if (mounted) {
+        await showAlert(
+          context,
+          title: '缺少蓝牙权限',
+          message: '请在系统设置中授予蓝牙扫描与连接权限。',
+        );
+      }
+      return;
+    }
+
     setState(() => _busy = true);
     List<BluetoothDevice> devices = const <BluetoothDevice>[];
     try {
@@ -72,6 +86,18 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _scanAccessory() async {
+    final granted = await const PermissionService().ensureCamera();
+    if (!granted) {
+      if (mounted) {
+        await showAlert(
+          context,
+          title: '缺少相机权限',
+          message: '请在系统设置中授予相机权限。',
+        );
+      }
+      return;
+    }
+    if (!mounted) return;
     final code = await Navigator.of(context).push<String>(
       MaterialPageRoute<String>(builder: (_) => const ScanScreen()),
     );
