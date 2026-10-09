@@ -34,7 +34,15 @@ flutter analyze
 flutter build apk --release
 ```
 
-> Release 签名密钥的生成与配置见后续「打包交付」阶段。
+产物位于 `build/app/outputs/flutter-apk/app-release.apk`。
+
+### 签名
+
+- 签名密钥：`android/app/printer-release.jks`（PKCS12，alias `printer`）。
+- 配置：`android/key.properties`（`storeFile` 相对于 `android/app`）。
+- 若 `android/key.properties` 不存在，release 构建会回退到 debug 签名。
+
+> ⚠️ 密钥与口令属于敏感信息，请勿提交到公开仓库。CI/CD 成熟后建议改用 GitHub Secrets 管理。
 
 ## 目录结构
 

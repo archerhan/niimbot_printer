@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 import 'package:shadcn_ui/shadcn_ui.dart';
 
 import '../core/code_generator.dart';
+import '../services/permission_service.dart';
 import '../state/app_scope.dart';
 import '../widgets/app_dialogs.dart';
 
@@ -58,6 +60,56 @@ class _SettingsScreenState extends State<SettingsScreen> {
     super.dispose();
   }
 
+  Future<void> _reconnect() async {
+    final controller = AppScope.of(context);
+
+    final granted = await const PermissionService().ensureBluetooth();
+    if (!granted) {
+      if (mounted) {
+        await showAlert(
+          context,
+          title: '缺少蓝牙权限',
+          message: '请在系统设置中授予蓝牙扫描与连接权限。',
+        );
+      }
+      return;
+    }
+    if (!mounted) return;
+
+    List<BluetoothDevice> devices = const <BluetoothDevice>[];
+    try {
+      devices = await controller.scan();
+    } catch (error) {
+      if (mounted) {
+        await showAlert(context, title: '扫描失败', message: '$error');
+      }
+      return;
+    }
+    if (!mounted) return;
+
+    if (devices.isEmpty) {
+      await showAlert(
+        context,
+        title: '未找到打印机',
+        message: '请确认 B1 已开机、蓝牙已开启，并处于配对状态。',
+      );
+      return;
+    }
+
+    final device = await showDevicePicker(context, devices);
+    if (device == null || !mounted) return;
+
+    try {
+      await controller.connect(device);
+    } catch (error) {
+      if (mounted) {
+        await showAlert(context, title: '连接失败', message: '$error');
+      }
+      return;
+    }
+    if (mounted) setState(() {});
+  }
+
   Future<void> _save() async {
     final controller = AppScope.of(context);
     final old = controller.settings.settings;
@@ -108,6 +160,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final controller = AppScope.of(context);
     return Scaffold(
       appBar: AppBar(title: const Text('设置')),
       body: ListView(
@@ -159,6 +212,29 @@ class _SettingsScreenState extends State<SettingsScreen> {
             title: const Text('打印浓度'),
             description: const Text('1 ~ 5，默认 3'),
             child: _field('浓度', _density, keyboardType: TextInputType.number),
+          ),
+          const SizedBox(height: 16),
+          ShadCard(
+            title: const Text('打印机设备'),
+            description: Text(controller.statusText),
+            footer: Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                if (controller.isConnected)
+                  ShadButton.outline(
+                    onPressed: () async {
+                      await controller.disconnect();
+                      if (mounted) setState(() {});
+                    },
+                    child: const Text('断开'),
+                  ),
+                const SizedBox(width: 8),
+                ShadButton(
+                  onPressed: _reconnect,
+                  child: const Text('重新连接'),
+                ),
+              ],
+            ),
           ),
           const SizedBox(height: 24),
           ShadButton(

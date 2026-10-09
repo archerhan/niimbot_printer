@@ -5,6 +5,7 @@ import '../core/label_job.dart';
 import '../models/print_record.dart';
 import '../state/app_scope.dart';
 import '../widgets/app_dialogs.dart';
+import 'history_detail_screen.dart';
 
 class HistoryScreen extends StatefulWidget {
   const HistoryScreen({super.key});
@@ -101,34 +102,51 @@ class _HistoryScreenState extends State<HistoryScreen> {
 
   Widget _recordCard(PrintRecord record) {
     final statusColor = record.success ? Colors.green : Colors.red;
-    return ShadCard(
-      title: Row(
-        children: [
-          Expanded(child: Text(record.productCode)),
-          if (record.isReprint)
-            const Padding(
-              padding: EdgeInsets.only(left: 8),
-              child: ShadBadge(child: Text('重打')),
+    return InkWell(
+      borderRadius: BorderRadius.circular(12),
+      onTap: () async {
+        await Navigator.of(context).push<void>(
+          MaterialPageRoute<void>(
+            builder: (_) => HistoryDetailScreen(record: record),
+          ),
+        );
+        await _load();
+      },
+      child: ShadCard(
+        title: Row(
+          children: [
+            Expanded(child: Text(record.productCode)),
+            if (record.isReprint)
+              const Padding(
+                padding: EdgeInsets.only(left: 8),
+                child: ShadBadge(child: Text('重打')),
+              ),
+          ],
+        ),
+        description: Text(
+          '配件：${record.accessoryCode}\n'
+          '序号：${record.serial.toString().padLeft(4, '0')}\n'
+          '时间：${_formatTime(record.createdAt)}',
+        ),
+        footer: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              record.success ? '打印成功' : '打印失败',
+              style: TextStyle(color: statusColor, fontWeight: FontWeight.w600),
             ),
-        ],
-      ),
-      description: Text(
-        '配件：${record.accessoryCode}\n'
-        '序号：${record.serial.toString().padLeft(4, '0')}\n'
-        '时间：${_formatTime(record.createdAt)}',
-      ),
-      footer: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(
-            record.success ? '打印成功' : '打印失败',
-            style: TextStyle(color: statusColor, fontWeight: FontWeight.w600),
-          ),
-          ShadButton.outline(
-            child: const Text('重打'),
-            onPressed: () => _reprint(record),
-          ),
-        ],
+            Row(
+              children: [
+                ShadButton.outline(
+                  onPressed: () => _reprint(record),
+                  child: const Text('重打'),
+                ),
+                const SizedBox(width: 8),
+                const Icon(Icons.chevron_right),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }

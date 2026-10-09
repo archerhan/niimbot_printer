@@ -1,4 +1,7 @@
+import 'dart:io';
+
 import 'package:flutter_test/flutter_test.dart';
+import 'package:path/path.dart' as p;
 import 'package:printer/models/print_record.dart';
 import 'package:printer/services/history_repository.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
@@ -101,5 +104,28 @@ void main() {
     );
     expect(reprint.isReprint, isTrue);
     expect(reprint.originalId, original.id);
+  });
+
+  test('从 v1 升级到 v2 时保留数据', () async {
+    final dir = await Directory.systemTemp.createTemp('printer_db');
+    addTearDown(() => dir.deleteSync(recursive: true));
+    final path = p.join(dir.path, 'upgrade.db');
+
+    final repoV1 = await HistoryRepository.open(
+      factory: databaseFactoryFfi,
+      path: path,
+      version: 1,
+    );
+    await repoV1.insert(_record(serial: 1, accessory: 'A1'));
+    await repoV1.close();
+
+    final repoV2 = await HistoryRepository.open(
+      factory: databaseFactoryFfi,
+      path: path,
+      version: 2,
+    );
+    expect(await repoV2.count(), 1);
+    expect((await repoV2.recent()).first.accessoryCode, 'A1');
+    await repoV2.close();
   });
 }

@@ -11,6 +11,22 @@ class HistoryRepository {
   static const String table = 'print_history';
   static const int schemaVersion = 1;
 
+  static const String _createTableSql = '''
+    CREATE TABLE $table (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      created_at INTEGER NOT NULL,
+      product_code TEXT NOT NULL,
+      accessory_code TEXT NOT NULL,
+      serial INTEGER NOT NULL,
+      qr_content TEXT NOT NULL,
+      label_lines TEXT NOT NULL DEFAULT '',
+      success INTEGER NOT NULL DEFAULT 0,
+      is_reprint INTEGER NOT NULL DEFAULT 0,
+      original_id INTEGER,
+      device_id TEXT
+    )
+  ''';
+
   /// 打开数据库。
   ///
   /// [factory] 可注入用于测试（例如 sqflite_common_ffi 的 databaseFactoryFfi）。
@@ -26,27 +42,37 @@ class HistoryRepository {
       options: OpenDatabaseOptions(
         version: version,
         onCreate: _onCreate,
+        onUpgrade: _onUpgrade,
       ),
     );
     return HistoryRepository(db);
   }
 
   static Future<void> _onCreate(Database db, int version) async {
-    await db.execute('''
-      CREATE TABLE $table (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        created_at INTEGER NOT NULL,
-        product_code TEXT NOT NULL,
-        accessory_code TEXT NOT NULL,
-        serial INTEGER NOT NULL,
-        qr_content TEXT NOT NULL,
-        label_lines TEXT NOT NULL DEFAULT '',
-        success INTEGER NOT NULL DEFAULT 0,
-        is_reprint INTEGER NOT NULL DEFAULT 0,
-        original_id INTEGER,
-        device_id TEXT
-      )
-    ''');
+    await db.execute(_createTableSql);
+  }
+
+  /// 迁移阶梯：从 [oldVersion] 逐级升到 [newVersion]。
+  static Future<void> _onUpgrade(
+    Database db,
+    int oldVersion,
+    int newVersion,
+  ) async {
+    for (var v = oldVersion; v < newVersion; v++) {
+      await _migrate(db, v, v + 1);
+    }
+  }
+
+  /// 单步迁移。[to] 为目标版本号，后续新增字段时在此追加 case。
+  static Future<void> _migrate(Database db, int from, int to) async {
+    switch (to) {
+      // 示例（当前 schema 仍是 v1，暂无迁移）：
+      // case 2:
+      //   await db.execute('ALTER TABLE $table ADD COLUMN note TEXT');
+      //   break;
+      default:
+        break;
+    }
   }
 
   /// 新增一条记录，返回带 id 的记录。
