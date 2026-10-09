@@ -69,4 +69,41 @@ void main() {
         large.pixels.expand((row) => row).where((p) => p == 1).length;
     expect(largeBlack, greaterThan(smallBlack));
   });
+
+  test('自定义纸张尺寸生效', () async {
+    final page = await renderer.buildPage(
+      qrContent: '!TEST@RESULT:OK',
+      lines: <String>['ADM32672805', 'CTX', '6O6-0001'],
+      pageWidth: 384,
+      pageHeight: 320,
+    );
+    expect(page.width, 384);
+    expect(page.height, 320);
+    expect(page.pixels.length, 320);
+  });
+
+  group('LabelLayout.forSize', () {
+    test('默认尺寸与设计基准一致', () {
+      final layout = LabelLayout.forSize(384, 240);
+      expect(layout.qrSize, 140);
+      expect(layout.qrCenterX, 95);
+      expect(layout.textLeft, 190);
+      expect(layout.line1Y, 65);
+      expect(layout.line3Y, 175);
+      expect(layout.fontScale, 1.0);
+    });
+
+    test('更细长的纸张：纵向按比例，字号受宽度限制', () {
+      final layout = LabelLayout.forSize(384, 300);
+      expect(layout.qrCenterY, 150);
+      expect(layout.line2Y, 150);
+      // fontScale = min(384/384, 300/240) = 1.0
+      expect(layout.fontScale, 1.0);
+    });
+
+    test('宽度收窄时字号同步缩小', () {
+      final layout = LabelLayout.forSize(192, 240);
+      expect(layout.fontScale, 0.5);
+    });
+  });
 }

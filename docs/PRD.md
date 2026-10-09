@@ -39,7 +39,7 @@ qrContent   = '!ADM32672805CTX6O60005#MDE:MDE62564302CDFL9D@RESULT:OK'
 
 ### 3.2 标签版式（初始预设，坐标可调）
 
-标签物理尺寸约 48mm × 30mm，像素预设 **384 × 240**（B1 打印头 384 点，203 dpi）。
+标签物理尺寸约 48mm × 30mm，像素预设 **384 × 240**（B1 打印头 384 点，203 dpi），可在设置中修改为实际纸张尺寸（宽度上限 384）。
 
 - 左侧二维码（约 140×140 px，内容为 `qrContent`）。
 - 右侧三行左对齐文字：
@@ -113,8 +113,9 @@ qrContent   = '!ADM32672805CTX6O60005#MDE:MDE62564302CDFL9D@RESULT:OK'
 - FR-SET-1：前缀 A/B/C 配置（含默认值）。
 - FR-SET-2：手动修正序号。
 - FR-SET-3：连续模式开关。
-- FR-SET-4：标签排版微调：x 偏移、y 偏移、字号、打印浓度（density 1–5）。
-- FR-SET-5：设备管理（当前设备 / 重新连接 / 切换设备）。
+- FR-SET-4：打印纸尺寸：宽度 / 高度（像素），预览与打印均按此尺寸生成。
+- FR-SET-5：标签排版微调：x 偏移、y 偏移、字号、打印浓度（density 1–5）。
+- FR-SET-6：设备管理（当前设备 / 重新连接 / 切换设备）。
 
 ### 4.9 权限（FR-PERM）
 
@@ -146,7 +147,8 @@ qrContent   = '!ADM32672805CTX6O60005#MDE:MDE62564302CDFL9D@RESULT:OK'
 | `serialLength` | int | 4 | 序号位数 |
 | `continuousMode` | bool | false | 连续模式 |
 | `offsetX` / `offsetY` | int | 0 | 排版偏移 |
-| `fontSize` | double | 22 | 文字字号 |
+| `labelWidth` / `labelHeight` | int | 384 / 240 | 打印纸尺寸（像素） |
+| `fontSize` | double | 24 | 文字字号（以 384×240 为基准，随纸张等比缩放） |
 | `density` | int | 3 | 打印浓度 |
 | `lastDeviceId` | String | 空 | 上次设备 ID |
 | `lastDeviceName` | String | 空 | 上次设备名 |

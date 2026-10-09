@@ -183,6 +183,8 @@ class _HomeScreenState extends State<HomeScreen> {
       final page = await controller.printService.renderer.buildPage(
         qrContent: job.qrContent,
         lines: job.lines,
+        pageWidth: controller.settings.settings.labelWidth,
+        pageHeight: controller.settings.settings.labelHeight,
         offsetX: controller.settings.settings.offsetX,
         offsetY: controller.settings.settings.offsetY,
         fontSize: controller.settings.settings.fontSize.round(),
@@ -202,7 +204,11 @@ class _HomeScreenState extends State<HomeScreen> {
           context: context,
           builder: (ctx) => ShadDialog(
             title: const Text('打印预览'),
-            description: Text('配件编号：${job.accessoryCode}'),
+            description: Text(
+              '配件编号：${job.accessoryCode}\n'
+              '纸张：${controller.settings.settings.labelWidth}'
+              '×${controller.settings.settings.labelHeight} 像素',
+            ),
             actions: [
               ShadButton.outline(
                 onPressed: () => Navigator.of(ctx).pop(false),

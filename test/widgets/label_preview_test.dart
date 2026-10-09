@@ -34,7 +34,7 @@ void main() {
     expect(decoration.borderRadius, isA<BorderRadius>());
     expect(
       (decoration.borderRadius! as BorderRadius).topLeft,
-      const Radius.circular(10),
+      const Radius.circular(12),
     );
     expect(decoration.color, Colors.white);
   });

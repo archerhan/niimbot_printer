@@ -20,6 +20,15 @@ void main() {
     expect(s.serialNumber, 1);
     expect(s.continuousMode, isFalse);
     expect(s.density, 3);
+    expect(s.labelWidth, 384);
+    expect(s.labelHeight, 240);
+  });
+
+  test('可读写纸张尺寸', () async {
+    await service.setLabelWidth(384);
+    await service.setLabelHeight(300);
+    expect(service.settings.labelWidth, 384);
+    expect(service.settings.labelHeight, 300);
   });
 
   test('可读写前缀与序号', () async {

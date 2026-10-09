@@ -21,6 +21,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
   final TextEditingController _serial = TextEditingController();
   final TextEditingController _offsetX = TextEditingController();
   final TextEditingController _offsetY = TextEditingController();
+  final TextEditingController _labelWidth = TextEditingController();
+  final TextEditingController _labelHeight = TextEditingController();
   final TextEditingController _fontSize = TextEditingController();
   final TextEditingController _density = TextEditingController();
   bool _continuous = false;
@@ -37,6 +39,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
     _serial.text = s.serialNumber.toString();
     _offsetX.text = s.offsetX.toString();
     _offsetY.text = s.offsetY.toString();
+    _labelWidth.text = s.labelWidth.toString();
+    _labelHeight.text = s.labelHeight.toString();
     _fontSize.text = s.fontSize.toStringAsFixed(0);
     _density.text = s.density.toString();
     _continuous = s.continuousMode;
@@ -52,6 +56,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
       _serial,
       _offsetX,
       _offsetY,
+      _labelWidth,
+      _labelHeight,
       _fontSize,
       _density,
     ]) {
@@ -144,6 +150,29 @@ class _SettingsScreenState extends State<SettingsScreen> {
     }
 
     await controller.settings.setContinuousMode(_continuous);
+    if (!mounted) return;
+
+    final labelWidth = int.tryParse(_labelWidth.text.trim());
+    final labelHeight = int.tryParse(_labelHeight.text.trim());
+    if (labelWidth == null || labelWidth < 50 || labelWidth > 384) {
+      await showAlert(
+        context,
+        title: '纸张宽度无效',
+        message: '宽度需为 50 ~ 384 像素（B1 打印头宽 384 点）。',
+      );
+      return;
+    }
+    if (labelHeight == null || labelHeight < 50 || labelHeight > 1000) {
+      await showAlert(
+        context,
+        title: '纸张高度无效',
+        message: '高度需为 50 ~ 1000 像素。',
+      );
+      return;
+    }
+    await controller.settings.setLabelWidth(labelWidth);
+    await controller.settings.setLabelHeight(labelHeight);
+
     await controller.settings
         .setOffsetX(int.tryParse(_offsetX.text.trim()) ?? old.offsetX);
     await controller.settings
@@ -193,6 +222,25 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 value: _continuous,
                 onChanged: (v) => setState(() => _continuous = v),
               ),
+            ),
+          ),
+          const SizedBox(height: 16),
+          ShadCard(
+            title: const Text('打印纸尺寸'),
+            description: const Text('单位：像素（打印点）。宽度上限 384'),
+            child: Column(
+              children: [
+                _field(
+                  '宽度',
+                  _labelWidth,
+                  keyboardType: TextInputType.number,
+                ),
+                _field(
+                  '高度',
+                  _labelHeight,
+                  keyboardType: TextInputType.number,
+                ),
+              ],
             ),
           ),
           const SizedBox(height: 16),

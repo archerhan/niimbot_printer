@@ -16,11 +16,11 @@ class LabelPreview extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      clipBehavior: Clip.antiAlias,
+      padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: Colors.black45),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.black54, width: 1.5),
       ),
       child: Image.memory(imageBytes, height: height, fit: BoxFit.contain),
     );

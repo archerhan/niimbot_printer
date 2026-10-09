@@ -16,6 +16,8 @@ class SettingsService {
   static const String kContinuousMode = 'continuousMode';
   static const String kOffsetX = 'offsetX';
   static const String kOffsetY = 'offsetY';
+  static const String kLabelWidth = 'labelWidth';
+  static const String kLabelHeight = 'labelHeight';
   static const String kFontSize = 'fontSize';
   static const String kDensity = 'density';
   static const String kLastDeviceId = 'lastDeviceId';
@@ -33,6 +35,10 @@ class SettingsService {
         continuousMode: _prefs.getBool(kContinuousMode) ?? false,
         offsetX: _prefs.getInt(kOffsetX) ?? 0,
         offsetY: _prefs.getInt(kOffsetY) ?? 0,
+        labelWidth:
+            _prefs.getInt(kLabelWidth) ?? AppSettings.defaultLabelWidth,
+        labelHeight:
+            _prefs.getInt(kLabelHeight) ?? AppSettings.defaultLabelHeight,
         fontSize: _prefs.getDouble(kFontSize) ?? AppSettings.defaultFontSize,
         density: _prefs.getInt(kDensity) ?? AppSettings.defaultDensity,
         lastDeviceId: _prefs.getString(kLastDeviceId) ?? '',
@@ -57,6 +63,8 @@ class SettingsService {
 
   Future<void> setOffsetX(int value) => _prefs.setInt(kOffsetX, value);
   Future<void> setOffsetY(int value) => _prefs.setInt(kOffsetY, value);
+  Future<void> setLabelWidth(int value) => _prefs.setInt(kLabelWidth, value);
+  Future<void> setLabelHeight(int value) => _prefs.setInt(kLabelHeight, value);
   Future<void> setFontSize(double value) => _prefs.setDouble(kFontSize, value);
   Future<void> setDensity(int value) => _prefs.setInt(kDensity, value);
 
