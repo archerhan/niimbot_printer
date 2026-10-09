@@ -11,6 +11,7 @@ import '../services/permission_service.dart';
 import '../state/app_controller.dart';
 import '../state/app_scope.dart';
 import '../widgets/app_dialogs.dart';
+import '../widgets/label_preview.dart';
 import 'history_screen.dart';
 import 'scan_screen.dart';
 import 'settings_screen.dart';
@@ -215,15 +216,7 @@ class _HomeScreenState extends State<HomeScreen> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Container(
-                  color: Colors.white,
-                  padding: const EdgeInsets.all(12),
-                  child: Image.memory(
-                    png,
-                    height: 160,
-                    fit: BoxFit.contain,
-                  ),
-                ),
+                LabelPreview(imageBytes: png),
                 const SizedBox(height: 12),
                 SelectableText(
                   job.productCode,
@@ -328,11 +321,9 @@ class _HomeScreenState extends State<HomeScreen> {
           const SizedBox(height: 24),
           ShadButton(
             width: double.infinity,
+            height: 48,
             onPressed: _busy ? null : _scanAccessory,
-            child: const Padding(
-              padding: EdgeInsets.symmetric(vertical: 8),
-              child: Text('扫描配件码'),
-            ),
+            child: const Text('扫描配件码'),
           ),
           if (_busy)
             const Padding(

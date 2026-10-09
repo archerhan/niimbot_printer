@@ -239,11 +239,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
           const SizedBox(height: 24),
           ShadButton(
             width: double.infinity,
+            height: 48,
             onPressed: _save,
-            child: const Padding(
-              padding: EdgeInsets.symmetric(vertical: 8),
-              child: Text('保存'),
-            ),
+            child: const Text('保存'),
           ),
         ],
       ),

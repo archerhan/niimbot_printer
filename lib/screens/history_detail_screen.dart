@@ -83,11 +83,9 @@ class HistoryDetailScreen extends StatelessWidget {
           const SizedBox(height: 24),
           ShadButton(
             width: double.infinity,
+            height: 48,
             onPressed: () => _reprint(context),
-            child: const Padding(
-              padding: EdgeInsets.symmetric(vertical: 8),
-              child: Text('重打'),
-            ),
+            child: const Text('重打'),
           ),
         ],
       ),
