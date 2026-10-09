@@ -20,7 +20,7 @@ class AppSettings {
   static const String defaultPrefixC = '6O6';
   static const int defaultSerialNumber = 1;
   static const int defaultSerialLength = 4;
-  static const double defaultFontSize = 22;
+  static const double defaultFontSize = 24;
   static const int defaultDensity = 3;
 
   final String prefixA;

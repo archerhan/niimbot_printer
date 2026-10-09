@@ -48,6 +48,7 @@ class PrintService {
       lines: job.lines,
       offsetX: s.offsetX,
       offsetY: s.offsetY,
+      fontSize: s.fontSize.round(),
     );
 
     final createdAt = (now ?? DateTime.now)();

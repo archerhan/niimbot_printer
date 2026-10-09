@@ -51,4 +51,22 @@ void main() {
     expect(page.width, 384);
     expect(page.height, 240);
   });
+
+  test('字号越大渲染出的黑色像素越多', () async {
+    final small = await renderer.buildPage(
+      qrContent: 'X',
+      lines: <String>['ADM32672805', 'CTX', '6O6-0001'],
+      fontSize: 12,
+    );
+    final large = await renderer.buildPage(
+      qrContent: 'X',
+      lines: <String>['ADM32672805', 'CTX', '6O6-0001'],
+      fontSize: 32,
+    );
+    final smallBlack =
+        small.pixels.expand((row) => row).where((p) => p == 1).length;
+    final largeBlack =
+        large.pixels.expand((row) => row).where((p) => p == 1).length;
+    expect(largeBlack, greaterThan(smallBlack));
+  });
 }

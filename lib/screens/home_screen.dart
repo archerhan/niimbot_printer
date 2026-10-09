@@ -184,6 +184,7 @@ class _HomeScreenState extends State<HomeScreen> {
         lines: job.lines,
         offsetX: controller.settings.settings.offsetX,
         offsetY: controller.settings.settings.offsetY,
+        fontSize: controller.settings.settings.fontSize.round(),
       );
       png = await controller.printService.renderer.preview(page);
     } catch (error) {
