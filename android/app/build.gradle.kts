@@ -34,6 +34,22 @@ android {
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+
+        // 仅打包 arm64-v8a（含第三方原生库），减小 APK 体积
+        ndk {
+            abiFilters.add("arm64-v8a")
+        }
+    }
+
+    // 强制剔除其它 ABI 的预编译原生库（含第三方 ML Kit 库）
+    packaging {
+        jniLibs {
+            excludes += listOf(
+                "lib/armeabi-v7a/**",
+                "lib/x86/**",
+                "lib/x86_64/**",
+            )
+        }
     }
 
     signingConfigs {

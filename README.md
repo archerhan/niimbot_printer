@@ -31,10 +31,19 @@ flutter analyze
 ## 打包
 
 ```bash
-flutter build apk --release
+flutter build apk --release --target-platform android-arm64
 ```
 
 产物位于 `build/app/outputs/flutter-apk/app-release.apk`。
+
+APK 仅包含 **arm64-v8a** 一个 ABI（约 27MB）：
+
+- `--target-platform android-arm64` 只编译 Flutter 引擎的 arm64 版本。
+- `android/app/build.gradle.kts` 中通过 `ndk.abiFilters` 与
+  `packaging.jniLibs.excludes` 去除第三方预编译库的其它 ABI
+  （如扫码用的 ML Kit `libbarhopper_v3.so`）。
+
+> 只支持 64 位 ARM 设备（Android 12+ 主流机型均为 arm64-v8a）。
 
 ### 签名
 
