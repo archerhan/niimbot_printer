@@ -1,5 +1,9 @@
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 import 'package:niim_blue_flutter/niim_blue_flutter.dart';
+// niim_blue_flutter 1.0.1 未导出 print_task_factory，这里需要 PrintTaskName 做兜底。
+// ignore: implementation_imports
+import 'package:niim_blue_flutter/src/print_tasks/print_task_factory.dart'
+    show PrintTaskName;
 
 /// 打印机抽象，便于在单测中注入假实现。
 abstract class LabelPrinter {
@@ -59,15 +63,25 @@ class NiimbotPrinterService implements LabelPrinter {
     _client.setPacketInterval(0);
 
     try {
-      final task = _client.createPrintTask(
-        PrintOptions(
-          totalPages: 1,
-          density: density,
-          labelType: LabelType.withGaps,
-        ),
+      final options = PrintOptions(
+        totalPages: 1,
+        density: density,
+        labelType: LabelType.withGaps,
       );
+
+      var task = _client.createPrintTask(options);
+
+      // 与参考实现 niimbluelib 对齐的兜底：
+      // 未在映射表中的型号（如 Z401）在协议版本 >= 4 时使用 D110M_V4。
+      if (task == null && (_client.info.protocolVersion ?? 0) >= 4) {
+        task = _client.abstraction.newPrintTask(PrintTaskName.d110mV4, options);
+      }
+
       if (task == null) {
-        throw Exception('未能识别打印机型号');
+        throw Exception(
+          '未能识别打印机型号（型号ID=${_client.info.modelId}，'
+          '协议版本=${_client.info.protocolVersion}）',
+        );
       }
 
       await task.printInit();

@@ -154,24 +154,36 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
     final labelWidth = int.tryParse(_labelWidth.text.trim());
     final labelHeight = int.tryParse(_labelHeight.text.trim());
-    if (labelWidth == null || labelWidth < 50 || labelWidth > 384) {
+    if (labelWidth == null || labelWidth < 50 || labelWidth > 1200) {
       await showAlert(
         context,
         title: '纸张宽度无效',
-        message: '宽度需为 50 ~ 384 像素（B1 打印头宽 384 点）。',
+        message: '宽度需为 50 ~ 1200 像素（B1 为 384 点，Z401 为 851 点）。',
       );
       return;
     }
-    if (labelHeight == null || labelHeight < 50 || labelHeight > 1000) {
+    if (labelHeight == null || labelHeight < 50 || labelHeight > 2000) {
       await showAlert(
         context,
         title: '纸张高度无效',
-        message: '高度需为 50 ~ 1000 像素。',
+        message: '高度需为 50 ~ 2000 像素。',
       );
       return;
     }
     await controller.settings.setLabelWidth(labelWidth);
     await controller.settings.setLabelHeight(labelHeight);
+    if (!mounted) return;
+
+    final density = int.tryParse(_density.text.trim());
+    if (density == null || density < 1 || density > 15) {
+      await showAlert(
+        context,
+        title: '打印浓度无效',
+        message: '浓度需为 1 ~ 15（B1 为 1~5，Z401 为 1~15）。',
+      );
+      return;
+    }
+    await controller.settings.setDensity(density);
 
     await controller.settings
         .setOffsetX(int.tryParse(_offsetX.text.trim()) ?? old.offsetX);
@@ -179,9 +191,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
         .setOffsetY(int.tryParse(_offsetY.text.trim()) ?? old.offsetY);
     await controller.settings
         .setFontSize(double.tryParse(_fontSize.text.trim()) ?? old.fontSize);
-    await controller.settings
-        .setDensity(int.tryParse(_density.text.trim()) ?? old.density);
-
     if (!mounted) return;
     await showAlert(context, title: '已保存');
     if (mounted) Navigator.of(context).pop();
@@ -227,7 +236,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
           const SizedBox(height: 16),
           ShadCard(
             title: const Text('打印纸尺寸'),
-            description: const Text('单位：像素（打印点）。宽度上限 384'),
+            description: const Text(
+              '单位：像素（打印点）。B1 为 384 宽，Z401 为 851 宽',
+            ),
             child: Column(
               children: [
                 _field(
@@ -258,7 +269,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           const SizedBox(height: 16),
           ShadCard(
             title: const Text('打印浓度'),
-            description: const Text('1 ~ 5，默认 3'),
+            description: const Text('B1 为 1~5，Z401 为 1~15'),
             child: _field('浓度', _density, keyboardType: TextInputType.number),
           ),
           const SizedBox(height: 16),

@@ -117,23 +117,39 @@ Future<BluetoothDevice?> showDevicePicker(
     context: context,
     builder: (ctx) => ShadDialog(
       title: const Text('选择打印机'),
+      // ShadDialog 不是 Material 组件，ListTile 需要一个 Material 祖先，
+      // 否则构建会抛异常（release 下显示为灰色方块、内容不可见）。
       child: SizedBox(
         width: 320,
         height: 260,
-        child: ListView.builder(
-          shrinkWrap: true,
-          itemCount: devices.length,
-          itemBuilder: (_, index) {
-            final device = devices[index];
-            final name = device.platformName.isEmpty
-                ? '未知设备'
-                : device.platformName;
-            return ListTile(
-              title: Text(name),
-              subtitle: Text(device.remoteId.str),
-              onTap: () => Navigator.of(ctx).pop(device),
-            );
-          },
+        child: Material(
+          type: MaterialType.transparency,
+          child: ListView.separated(
+            shrinkWrap: true,
+            itemCount: devices.length,
+            separatorBuilder: (_, _) => const Divider(height: 1),
+            itemBuilder: (_, index) {
+              final device = devices[index];
+              final name = device.platformName.isNotEmpty
+                  ? device.platformName
+                  : (device.advName.isNotEmpty ? device.advName : '未知设备');
+              return ListTile(
+                title: Text(
+                  name,
+                  style: const TextStyle(
+                    color: Colors.black87,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                subtitle: Text(
+                  device.remoteId.str,
+                  style: const TextStyle(color: Colors.black54),
+                ),
+                onTap: () => Navigator.of(ctx).pop(device),
+              );
+            },
+          ),
         ),
       ),
     ),
