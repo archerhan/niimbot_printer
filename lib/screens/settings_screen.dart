@@ -21,8 +21,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
   final TextEditingController _serial = TextEditingController();
   final TextEditingController _offsetX = TextEditingController();
   final TextEditingController _offsetY = TextEditingController();
-  final TextEditingController _labelWidth = TextEditingController();
-  final TextEditingController _labelHeight = TextEditingController();
+  final TextEditingController _labelWidthMm = TextEditingController();
+  final TextEditingController _labelHeightMm = TextEditingController();
+  final TextEditingController _labelDpi = TextEditingController();
   final TextEditingController _fontSize = TextEditingController();
   final TextEditingController _density = TextEditingController();
   bool _continuous = false;
@@ -39,8 +40,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
     _serial.text = s.serialNumber.toString();
     _offsetX.text = s.offsetX.toString();
     _offsetY.text = s.offsetY.toString();
-    _labelWidth.text = s.labelWidth.toString();
-    _labelHeight.text = s.labelHeight.toString();
+    _labelWidthMm.text = _fmt(s.labelWidthMm);
+    _labelHeightMm.text = _fmt(s.labelHeightMm);
+    _labelDpi.text = s.labelDpi.toString();
     _fontSize.text = s.fontSize.toStringAsFixed(0);
     _density.text = s.density.toString();
     _continuous = s.continuousMode;
@@ -56,8 +58,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
       _serial,
       _offsetX,
       _offsetY,
-      _labelWidth,
-      _labelHeight,
+      _labelWidthMm,
+      _labelHeightMm,
+      _labelDpi,
       _fontSize,
       _density,
     ]) {
@@ -116,6 +119,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
     if (mounted) setState(() {});
   }
 
+  String _fmt(double value) {
+    final text = value.toStringAsFixed(1);
+    return text.endsWith('.0') ? text.substring(0, text.length - 2) : text;
+  }
+
   Future<void> _save() async {
     final controller = AppScope.of(context);
     final old = controller.settings.settings;
@@ -152,26 +160,36 @@ class _SettingsScreenState extends State<SettingsScreen> {
     await controller.settings.setContinuousMode(_continuous);
     if (!mounted) return;
 
-    final labelWidth = int.tryParse(_labelWidth.text.trim());
-    final labelHeight = int.tryParse(_labelHeight.text.trim());
-    if (labelWidth == null || labelWidth < 50 || labelWidth > 1200) {
+    final labelWidthMm = double.tryParse(_labelWidthMm.text.trim());
+    final labelHeightMm = double.tryParse(_labelHeightMm.text.trim());
+    final labelDpi = int.tryParse(_labelDpi.text.trim());
+    if (labelWidthMm == null || labelWidthMm < 5 || labelWidthMm > 120) {
       await showAlert(
         context,
         title: '纸张宽度无效',
-        message: '宽度需为 50 ~ 1200 像素（B1 为 384 点，Z401 为 851 点）。',
+        message: '宽度需为 5 ~ 120 毫米。',
       );
       return;
     }
-    if (labelHeight == null || labelHeight < 50 || labelHeight > 2000) {
+    if (labelHeightMm == null || labelHeightMm < 5 || labelHeightMm > 500) {
       await showAlert(
         context,
         title: '纸张高度无效',
-        message: '高度需为 50 ~ 2000 像素。',
+        message: '高度需为 5 ~ 500 毫米。',
       );
       return;
     }
-    await controller.settings.setLabelWidth(labelWidth);
-    await controller.settings.setLabelHeight(labelHeight);
+    if (labelDpi == null || labelDpi < 100 || labelDpi > 600) {
+      await showAlert(
+        context,
+        title: 'DPI 无效',
+        message: 'DPI 需为 100 ~ 600（B1 为 203，Z401 为 300）。',
+      );
+      return;
+    }
+    await controller.settings.setLabelWidthMm(labelWidthMm);
+    await controller.settings.setLabelHeightMm(labelHeightMm);
+    await controller.settings.setLabelDpi(labelDpi);
     if (!mounted) return;
 
     final density = int.tryParse(_density.text.trim());
@@ -237,20 +255,26 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ShadCard(
             title: const Text('打印纸尺寸'),
             description: const Text(
-              '单位：像素（打印点）。B1 为 384 宽，Z401 为 851 宽',
+              '单位：毫米（像素 = 毫米 × DPI ÷ 25.4）。\n'
+              'DPI：B1 为 203，Z401 为 300，连接后自动识别',
             ),
             child: Column(
               children: [
                 _field(
-                  '宽度',
-                  _labelWidth,
-                  keyboardType: TextInputType.number,
+                  '宽度（毫米）',
+                  _labelWidthMm,
+                  keyboardType: const TextInputType.numberWithOptions(
+                    decimal: true,
+                  ),
                 ),
                 _field(
-                  '高度',
-                  _labelHeight,
-                  keyboardType: TextInputType.number,
+                  '高度（毫米）',
+                  _labelHeightMm,
+                  keyboardType: const TextInputType.numberWithOptions(
+                    decimal: true,
+                  ),
                 ),
+                _field('DPI', _labelDpi, keyboardType: TextInputType.number),
               ],
             ),
           ),

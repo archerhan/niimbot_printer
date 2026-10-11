@@ -46,8 +46,8 @@ class PrintService {
     final page = await renderer.buildPage(
       qrContent: job.qrContent,
       lines: job.lines,
-      pageWidth: s.labelWidth,
-      pageHeight: s.labelHeight,
+      pageWidth: s.labelWidthPx,
+      pageHeight: s.labelHeightPx,
       offsetX: s.offsetX,
       offsetY: s.offsetY,
       fontSize: s.fontSize.round(),

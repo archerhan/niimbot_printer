@@ -9,8 +9,9 @@ class AppSettings {
     this.continuousMode = false,
     this.offsetX = 0,
     this.offsetY = 0,
-    this.labelWidth = defaultLabelWidth,
-    this.labelHeight = defaultLabelHeight,
+    this.labelWidthMm = defaultLabelWidthMm,
+    this.labelHeightMm = defaultLabelHeightMm,
+    this.labelDpi = defaultLabelDpi,
     this.fontSize = defaultFontSize,
     this.density = 3,
     this.lastDeviceId = '',
@@ -24,8 +25,9 @@ class AppSettings {
   static const int defaultSerialLength = 4;
   static const double defaultFontSize = 24;
   static const int defaultDensity = 3;
-  static const int defaultLabelWidth = 384;
-  static const int defaultLabelHeight = 240;
+  static const double defaultLabelWidthMm = 40;
+  static const double defaultLabelHeightMm = 20;
+  static const int defaultLabelDpi = 300;
 
   final String prefixA;
   final String prefixB;
@@ -35,12 +37,19 @@ class AppSettings {
   final bool continuousMode;
   final int offsetX;
   final int offsetY;
-  final int labelWidth;
-  final int labelHeight;
+  final double labelWidthMm;
+  final double labelHeightMm;
+  final int labelDpi;
   final double fontSize;
   final int density;
   final String lastDeviceId;
   final String lastDeviceName;
+
+  /// 纸张宽度（像素/打印点）。
+  int get labelWidthPx => (labelWidthMm * labelDpi / 25.4).round();
+
+  /// 纸张高度（像素/打印点）。
+  int get labelHeightPx => (labelHeightMm * labelDpi / 25.4).round();
 
   AppSettings copyWith({
     String? prefixA,
@@ -51,8 +60,9 @@ class AppSettings {
     bool? continuousMode,
     int? offsetX,
     int? offsetY,
-    int? labelWidth,
-    int? labelHeight,
+    double? labelWidthMm,
+    double? labelHeightMm,
+    int? labelDpi,
     double? fontSize,
     int? density,
     String? lastDeviceId,
@@ -67,8 +77,9 @@ class AppSettings {
       continuousMode: continuousMode ?? this.continuousMode,
       offsetX: offsetX ?? this.offsetX,
       offsetY: offsetY ?? this.offsetY,
-      labelWidth: labelWidth ?? this.labelWidth,
-      labelHeight: labelHeight ?? this.labelHeight,
+      labelWidthMm: labelWidthMm ?? this.labelWidthMm,
+      labelHeightMm: labelHeightMm ?? this.labelHeightMm,
+      labelDpi: labelDpi ?? this.labelDpi,
       fontSize: fontSize ?? this.fontSize,
       density: density ?? this.density,
       lastDeviceId: lastDeviceId ?? this.lastDeviceId,

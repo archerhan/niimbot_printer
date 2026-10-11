@@ -20,15 +20,23 @@ void main() {
     expect(s.serialNumber, 1);
     expect(s.continuousMode, isFalse);
     expect(s.density, 3);
-    expect(s.labelWidth, 384);
-    expect(s.labelHeight, 240);
+    expect(s.labelWidthMm, 40);
+    expect(s.labelHeightMm, 20);
+    expect(s.labelDpi, 300);
+    // 40 × 20 mm @ 300dpi
+    expect(s.labelWidthPx, 472);
+    expect(s.labelHeightPx, 236);
   });
 
-  test('可读写纸张尺寸', () async {
-    await service.setLabelWidth(384);
-    await service.setLabelHeight(300);
-    expect(service.settings.labelWidth, 384);
-    expect(service.settings.labelHeight, 300);
+  test('可读写纸张尺寸与 DPI', () async {
+    await service.setLabelWidthMm(40);
+    await service.setLabelHeightMm(20);
+    await service.setLabelDpi(203);
+    expect(service.settings.labelWidthMm, 40);
+    expect(service.settings.labelHeightMm, 20);
+    expect(service.settings.labelDpi, 203);
+    // 40mm @ 203dpi ≈ 320 像素
+    expect(service.settings.labelWidthPx, 320);
   });
 
   test('可读写前缀与序号', () async {

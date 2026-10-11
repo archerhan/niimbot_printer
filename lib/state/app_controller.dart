@@ -82,6 +82,12 @@ class AppController extends ChangeNotifier {
       _deviceName = name;
       _status = ConnectionStatus.connected;
       await settings.setLastDevice(id: device.remoteId.str, name: name);
+
+      // 依据实际打印机型号自动更新 DPI（毫米 ↔ 像素换算用）
+      final meta = printer.modelMeta;
+      if (meta != null) {
+        await settings.setLabelDpi(meta.dpi);
+      }
     } catch (error) {
       _status = ConnectionStatus.disconnected;
       rethrow;

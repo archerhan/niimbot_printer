@@ -183,8 +183,8 @@ class _HomeScreenState extends State<HomeScreen> {
       final page = await controller.printService.renderer.buildPage(
         qrContent: job.qrContent,
         lines: job.lines,
-        pageWidth: controller.settings.settings.labelWidth,
-        pageHeight: controller.settings.settings.labelHeight,
+        pageWidth: controller.settings.settings.labelWidthPx,
+        pageHeight: controller.settings.settings.labelHeightPx,
         offsetX: controller.settings.settings.offsetX,
         offsetY: controller.settings.settings.offsetY,
         fontSize: controller.settings.settings.fontSize.round(),
@@ -206,8 +206,10 @@ class _HomeScreenState extends State<HomeScreen> {
             title: const Text('打印预览'),
             description: Text(
               '配件编号：${job.accessoryCode}\n'
-              '纸张：${controller.settings.settings.labelWidth}'
-              '×${controller.settings.settings.labelHeight} 像素',
+              '纸张：${_fmtMm(controller.settings.settings.labelWidthMm)}'
+              '×${_fmtMm(controller.settings.settings.labelHeightMm)} mm'
+              '（${controller.settings.settings.labelWidthPx}'
+              '×${controller.settings.settings.labelHeightPx} 像素）',
             ),
             actions: [
               ShadButton.outline(
@@ -283,6 +285,11 @@ class _HomeScreenState extends State<HomeScreen> {
       serial: s.serialNumber,
       serialLength: s.serialLength,
     );
+  }
+
+  String _fmtMm(double value) {
+    final text = value.toStringAsFixed(1);
+    return text.endsWith('.0') ? text.substring(0, text.length - 2) : text;
   }
 
   @override

@@ -30,6 +30,16 @@ class NiimbotPrinterService implements LabelPrinter {
 
   String? get deviceName => _device?.platformName;
 
+  /// 已连接打印机的型号信息（用于自动识别 DPI 等）。
+  PrinterModelMeta? get modelMeta {
+    final id = _client.info.modelId;
+    if (id == null) return null;
+    for (final meta in modelsLibrary) {
+      if (meta.id.contains(id)) return meta;
+    }
+    return null;
+  }
+
   void setOnDisconnect(void Function() callback) =>
       _client.setOnDisconnect(callback);
 
