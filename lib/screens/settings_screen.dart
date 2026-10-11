@@ -29,6 +29,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   final TextEditingController _labelHeightMm = TextEditingController();
   final TextEditingController _labelDpi = TextEditingController();
   final TextEditingController _fontSize = TextEditingController();
+  final TextEditingController _qrSizeMm = TextEditingController();
   final TextEditingController _density = TextEditingController();
   bool _continuous = false;
   bool _testing = false;
@@ -49,6 +50,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     _labelHeightMm.text = _fmt(s.labelHeightMm);
     _labelDpi.text = s.labelDpi.toString();
     _fontSize.text = s.fontSize.toStringAsFixed(0);
+    _qrSizeMm.text = _fmt(s.qrSizeMm);
     _density.text = s.density.toString();
     _continuous = s.continuousMode;
     _initialized = true;
@@ -67,6 +69,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       _labelHeightMm,
       _labelDpi,
       _fontSize,
+      _qrSizeMm,
       _density,
     ]) {
       c.dispose();
@@ -147,6 +150,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         offsetX: s.offsetX,
         offsetY: s.offsetY,
         fontSize: s.fontSize.round(),
+        qrSize: s.qrSizePx,
       );
       await controller.printer.printPage(
         page,
@@ -254,9 +258,32 @@ class _SettingsScreenState extends State<SettingsScreen> {
     await controller.settings.setOffsetY(
       int.tryParse(_offsetY.text.trim()) ?? old.offsetY,
     );
-    await controller.settings.setFontSize(
-      double.tryParse(_fontSize.text.trim()) ?? old.fontSize,
-    );
+    if (!mounted) return;
+
+    final qrSizeMm = double.tryParse(_qrSizeMm.text.trim());
+    if (qrSizeMm == null || qrSizeMm < 3 || qrSizeMm > 100) {
+      await showAlert(
+        context,
+        title: '二维码尺寸无效',
+        message:
+            '二维码边长需为 3 ~ 100 毫米。\n'
+            '（过大时会自动限制，保证不超出纸张并与文字保持间距）',
+      );
+      return;
+    }
+    await controller.settings.setQrSizeMm(qrSizeMm);
+    if (!mounted) return;
+
+    final fontSize = double.tryParse(_fontSize.text.trim());
+    if (fontSize == null || fontSize < 6 || fontSize > 200) {
+      await showAlert(
+        context,
+        title: '字号无效',
+        message: '字号需为 6 ~ 200。\n（过大时会自动缩小，保证每行完整显示）',
+      );
+      return;
+    }
+    await controller.settings.setFontSize(fontSize);
     if (!mounted) return;
     await showAlert(context, title: '已保存');
     if (mounted) Navigator.of(context).pop();
@@ -272,7 +299,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
         children: [
           ShadCard(
             title: const Text('产品编号前缀'),
-            description: const Text('修改任一前缀都会重置序号'),
+            description: const Text(
+              '前缀 A / B / C 分别对应标签右侧第 1 / 2 / 3 行文字，'
+              '第 3 行会附加「-序号」。修改任一前缀都会重置序号为 0001。',
+            ),
             child: Column(
               children: [
                 _field('前缀 A', _a),
@@ -284,13 +314,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
           const SizedBox(height: 16),
           ShadCard(
             title: const Text('序号'),
-            description: const Text('手动修正当前序号（1 ~ 9999）'),
+            description: const Text(
+              '打印成功后自动 +1（范围 1 ~ 9999）；'
+              '若当前序号与上次成功打印不连续，打印前会弹跳号警告。\n'
+              '可在此手动修正。',
+            ),
             child: _field('当前序号', _serial, keyboardType: TextInputType.number),
           ),
           const SizedBox(height: 16),
           ShadCard(
             title: const Text('连续模式'),
-            description: const Text('开启后扫码直接打印，跳过预览'),
+            description: const Text('开启后扫码直接打印，跳过预览；打印失败会自动暂停并提示。'),
             child: Align(
               alignment: Alignment.centerLeft,
               child: ShadSwitch(
@@ -303,8 +337,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ShadCard(
             title: const Text('打印纸尺寸'),
             description: const Text(
-              '单位：毫米（像素 = 毫米 × DPI ÷ 25.4）。\n'
-              'DPI：B1 为 203，Z401 为 300，连接后自动识别',
+              '请按实际标签纸填写（单位：毫米），预览与打印都按此尺寸排版。\n'
+              '换算：像素 = 毫米 × DPI ÷ 25.4；DPI 连接打印机后自动识别'
+              '（B1 为 203，Z401 为 300）。',
             ),
             child: Column(
               children: [
@@ -329,19 +364,52 @@ class _SettingsScreenState extends State<SettingsScreen> {
           const SizedBox(height: 16),
           ShadCard(
             title: const Text('标签排版微调'),
-            description: const Text('用于现场校正位置与字号'),
+            description: const Text(
+              '内容默认在纸张内自动居中，二维码与文字均不会贴边；'
+              '以下参数用于现场校正，保存后可用「打印测试页」查看效果。',
+            ),
             child: Column(
               children: [
-                _field('X 偏移', _offsetX, keyboardType: TextInputType.number),
-                _field('Y 偏移', _offsetY, keyboardType: TextInputType.number),
-                _field('字号', _fontSize, keyboardType: TextInputType.number),
+                _field(
+                  '二维码尺寸（毫米）',
+                  _qrSizeMm,
+                  keyboardType: const TextInputType.numberWithOptions(
+                    decimal: true,
+                  ),
+                  hint: '二维码边长。过大时会自动限制：不超出纸张，并给右侧文字留出空间。',
+                ),
+                _field(
+                  '字号',
+                  _fontSize,
+                  keyboardType: TextInputType.number,
+                  hint:
+                      '文字大小（以 384×240 像素为基准随纸张等比缩放）。'
+                      '过大时会自动缩小，保证每行完整显示、不超出纸张。',
+                ),
+                _field(
+                  'X 偏移',
+                  _offsetX,
+                  keyboardType: TextInputType.number,
+                  hint:
+                      '整张标签内容水平微调：正值向右移，负值向左移。'
+                      '单位是打印点（300 DPI 下约 0.085 毫米/点）。',
+                ),
+                _field(
+                  'Y 偏移',
+                  _offsetY,
+                  keyboardType: TextInputType.number,
+                  hint: '整张标签内容垂直微调：正值向下移，负值向上移。单位同上。',
+                ),
               ],
             ),
           ),
           const SizedBox(height: 16),
           ShadCard(
             title: const Text('打印浓度'),
-            description: const Text('B1 为 1~5，Z401 为 1~15'),
+            description: const Text(
+              '数值越大打印颜色越深（可影响条码/二维码识别清晰度）。\n'
+              'B1 建议 1~5，Z401 建议 1~15（默认 12）。',
+            ),
             child: _field('浓度', _density, keyboardType: TextInputType.number),
           ),
           const SizedBox(height: 16),
@@ -502,6 +570,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     String label,
     TextEditingController controller, {
     TextInputType? keyboardType,
+    String? hint,
   }) {
     return Padding(
       padding: const EdgeInsets.only(top: 12),
@@ -511,6 +580,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
           Text(label, style: const TextStyle(fontSize: 13)),
           const SizedBox(height: 6),
           ShadInput(controller: controller, keyboardType: keyboardType),
+          if (hint != null) ...[
+            const SizedBox(height: 4),
+            Text(
+              hint,
+              style: const TextStyle(fontSize: 12, color: Colors.black54),
+            ),
+          ],
         ],
       ),
     );

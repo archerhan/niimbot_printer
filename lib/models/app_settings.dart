@@ -41,7 +41,8 @@ class AppSettings {
     this.labelHeightMm = defaultLabelHeightMm,
     this.labelDpi = defaultLabelDpi,
     this.fontSize = defaultFontSize,
-    this.density = 3,
+    this.qrSizeMm = defaultQrSizeMm,
+    this.density = defaultDensity,
     this.lastDeviceId = '',
     this.lastDeviceName = '',
     this.printTaskPreference = PrinterTaskPreference.auto,
@@ -52,8 +53,9 @@ class AppSettings {
   static const String defaultPrefixC = '6O6';
   static const int defaultSerialNumber = 1;
   static const int defaultSerialLength = 4;
-  static const double defaultFontSize = 24;
-  static const int defaultDensity = 3;
+  static const double defaultFontSize = 30;
+  static const double defaultQrSizeMm = 12;
+  static const int defaultDensity = 12;
   static const double defaultLabelWidthMm = 40;
   static const double defaultLabelHeightMm = 20;
   static const int defaultLabelDpi = 300;
@@ -70,6 +72,9 @@ class AppSettings {
   final double labelHeightMm;
   final int labelDpi;
   final double fontSize;
+
+  /// 二维码边长（毫米）。渲染时会自动限制，保证不超出纸张。
+  final double qrSizeMm;
   final int density;
   final String lastDeviceId;
   final String lastDeviceName;
@@ -80,6 +85,9 @@ class AppSettings {
 
   /// 纸张高度（像素/打印点）。
   int get labelHeightPx => (labelHeightMm * labelDpi / 25.4).round();
+
+  /// 二维码边长（像素/打印点）。
+  int get qrSizePx => (qrSizeMm * labelDpi / 25.4).round();
 
   AppSettings copyWith({
     String? prefixA,
@@ -94,6 +102,7 @@ class AppSettings {
     double? labelHeightMm,
     int? labelDpi,
     double? fontSize,
+    double? qrSizeMm,
     int? density,
     String? lastDeviceId,
     String? lastDeviceName,
@@ -112,6 +121,7 @@ class AppSettings {
       labelHeightMm: labelHeightMm ?? this.labelHeightMm,
       labelDpi: labelDpi ?? this.labelDpi,
       fontSize: fontSize ?? this.fontSize,
+      qrSizeMm: qrSizeMm ?? this.qrSizeMm,
       density: density ?? this.density,
       lastDeviceId: lastDeviceId ?? this.lastDeviceId,
       lastDeviceName: lastDeviceName ?? this.lastDeviceName,

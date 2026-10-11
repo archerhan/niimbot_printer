@@ -2,6 +2,7 @@ import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
+import 'package:gal/gal.dart';
 import 'package:shadcn_ui/shadcn_ui.dart';
 
 import '../core/code_generator.dart';
@@ -186,6 +187,7 @@ class _HomeScreenState extends State<HomeScreen> {
         offsetX: controller.settings.settings.offsetX,
         offsetY: controller.settings.settings.offsetY,
         fontSize: controller.settings.settings.fontSize.round(),
+        qrSize: controller.settings.settings.qrSizePx,
       );
       png = await controller.printService.renderer.preview(page);
     } catch (error) {
@@ -215,6 +217,10 @@ class _HomeScreenState extends State<HomeScreen> {
                 onPressed: () => Navigator.of(ctx).pop(false),
                 child: const Text('取消'),
               ),
+              ShadButton.secondary(
+                onPressed: () => _exportToGallery(png, job.productCode),
+                child: const Text('导出图片'),
+              ),
               ShadButton(
                 onPressed: () => Navigator.of(ctx).pop(true),
                 child: const Text('打印'),
@@ -240,6 +246,41 @@ class _HomeScreenState extends State<HomeScreen> {
 
     if (!confirmed) return;
     await _printJob(job);
+  }
+
+  /// 将预览图保存到系统相册。
+  Future<void> _exportToGallery(Uint8List png, String productCode) async {
+    try {
+      if (!await Gal.hasAccess()) {
+        final granted = await Gal.requestAccess();
+        if (!granted) {
+          if (mounted) {
+            await showAlert(
+              context,
+              title: '无法保存到相册',
+              message: '请在系统设置中允许访问照片/存储后重试。',
+            );
+          }
+          return;
+        }
+      }
+      await Gal.putImageBytes(png, name: 'label_$productCode');
+      if (mounted) {
+        await showAlert(
+          context,
+          title: '已保存到相册',
+          message: '文件名：label_$productCode',
+        );
+      }
+    } on GalException catch (error) {
+      if (mounted) {
+        await showAlert(context, title: '保存失败', message: error.type.message);
+      }
+    } catch (error) {
+      if (mounted) {
+        await showAlert(context, title: '保存失败', message: '$error');
+      }
+    }
   }
 
   Future<void> _printJob(LabelJob job) async {

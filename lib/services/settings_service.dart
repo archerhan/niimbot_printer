@@ -20,6 +20,7 @@ class SettingsService {
   static const String kLabelHeightMm = 'labelHeightMm';
   static const String kLabelDpi = 'labelDpi';
   static const String kFontSize = 'fontSize';
+  static const String kQrSizeMm = 'qrSizeMm';
   static const String kDensity = 'density';
   static const String kLastDeviceId = 'lastDeviceId';
   static const String kLastDeviceName = 'lastDeviceName';
@@ -43,6 +44,7 @@ class SettingsService {
         _prefs.getDouble(kLabelHeightMm) ?? AppSettings.defaultLabelHeightMm,
     labelDpi: _prefs.getInt(kLabelDpi) ?? AppSettings.defaultLabelDpi,
     fontSize: _prefs.getDouble(kFontSize) ?? AppSettings.defaultFontSize,
+    qrSizeMm: _prefs.getDouble(kQrSizeMm) ?? AppSettings.defaultQrSizeMm,
     density: _prefs.getInt(kDensity) ?? AppSettings.defaultDensity,
     lastDeviceId: _prefs.getString(kLastDeviceId) ?? '',
     lastDeviceName: _prefs.getString(kLastDeviceName) ?? '',
@@ -75,6 +77,7 @@ class SettingsService {
       _prefs.setDouble(kLabelHeightMm, value);
   Future<void> setLabelDpi(int value) => _prefs.setInt(kLabelDpi, value);
   Future<void> setFontSize(double value) => _prefs.setDouble(kFontSize, value);
+  Future<void> setQrSizeMm(double value) => _prefs.setDouble(kQrSizeMm, value);
   Future<void> setDensity(int value) => _prefs.setInt(kDensity, value);
 
   Future<void> setLastDevice({required String id, required String name}) async {

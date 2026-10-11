@@ -47,6 +47,7 @@ class PrintService {
       offsetX: s.offsetX,
       offsetY: s.offsetY,
       fontSize: s.fontSize.round(),
+      qrSize: s.qrSizePx,
     );
 
     final createdAt = (now ?? DateTime.now)();

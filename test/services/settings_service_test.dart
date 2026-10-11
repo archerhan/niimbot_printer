@@ -20,7 +20,9 @@ void main() {
     expect(s.prefixC, '6O6');
     expect(s.serialNumber, 1);
     expect(s.continuousMode, isFalse);
-    expect(s.density, 3);
+    expect(s.density, 12);
+    expect(s.fontSize, 30);
+    expect(s.qrSizeMm, 12);
     expect(s.labelWidthMm, 40);
     expect(s.labelHeightMm, 20);
     expect(s.labelDpi, 300);
@@ -39,6 +41,13 @@ void main() {
     expect(service.settings.labelDpi, 203);
     // 40mm @ 203dpi ≈ 320 像素
     expect(service.settings.labelWidthPx, 320);
+  });
+
+  test('可读写二维码尺寸（毫米）', () async {
+    await service.setQrSizeMm(15);
+    expect(service.settings.qrSizeMm, 15);
+    // 15mm @ 300dpi ≈ 177 像素
+    expect(service.settings.qrSizePx, 177);
   });
 
   test('可读写前缀与序号', () async {
