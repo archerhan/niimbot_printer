@@ -12,6 +12,7 @@ import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 class _FakePrinter implements LabelPrinter {
   bool fail = false;
   int printCount = 0;
+  PrinterTaskPreference? lastTaskPreference;
 
   @override
   bool get isConnected => true;
@@ -20,8 +21,13 @@ class _FakePrinter implements LabelPrinter {
   String? get deviceId => 'FAKE:01';
 
   @override
-  Future<void> printPage(PrintPage page, {required int density}) async {
+  Future<void> printPage(
+    PrintPage page, {
+    required int density,
+    PrinterTaskPreference taskPreference = PrinterTaskPreference.auto,
+  }) async {
     printCount++;
+    lastTaskPreference = taskPreference;
     if (fail) {
       throw Exception('boom');
     }
@@ -109,10 +115,7 @@ void main() {
 
   test('自定义初始序号生效', () async {
     await settings.setSerialNumber(7);
-    final job = LabelJob.build(
-      settings: settings.settings,
-      accessoryCode: 'X',
-    );
+    final job = LabelJob.build(settings: settings.settings, accessoryCode: 'X');
     expect(job.qrContent, contains('6O6'));
     expect(job.serial, 7);
     final outcome = await service.print(job);
@@ -122,5 +125,19 @@ void main() {
 
   test('默认设置快照一致性', () async {
     expect(settings.settings.prefixA, AppSettings.defaultPrefixA);
+  });
+
+  test('打印任务偏好会传递给打印机', () async {
+    final job = LabelJob.build(settings: settings.settings, accessoryCode: 'X');
+    await service.print(job);
+    expect(printer.lastTaskPreference, PrinterTaskPreference.auto);
+
+    await settings.setPrintTaskPreference(PrinterTaskPreference.b1);
+    final job2 = LabelJob.build(
+      settings: settings.settings,
+      accessoryCode: 'Y',
+    );
+    await service.print(job2);
+    expect(printer.lastTaskPreference, PrinterTaskPreference.b1);
   });
 }

@@ -3,7 +3,11 @@ import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 import 'package:shadcn_ui/shadcn_ui.dart';
 
 import '../core/code_generator.dart';
+import '../models/app_settings.dart';
+import '../services/label_printer.dart';
+import '../services/label_renderer.dart';
 import '../services/permission_service.dart';
+import '../state/app_controller.dart';
 import '../state/app_scope.dart';
 import '../widgets/app_dialogs.dart';
 
@@ -27,6 +31,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   final TextEditingController _fontSize = TextEditingController();
   final TextEditingController _density = TextEditingController();
   bool _continuous = false;
+  bool _testing = false;
   bool _initialized = false;
 
   @override
@@ -124,6 +129,55 @@ class _SettingsScreenState extends State<SettingsScreen> {
     return text.endsWith('.0') ? text.substring(0, text.length - 2) : text;
   }
 
+  Future<void> _testPrint() async {
+    final controller = AppScope.of(context);
+    if (!controller.isConnected) {
+      await showAlert(context, title: '打印机未连接', message: '请先连接打印机后再测试。');
+      return;
+    }
+
+    final s = controller.settings.settings;
+    setState(() => _testing = true);
+    try {
+      final page = await const LabelRenderer().buildPage(
+        qrContent: '!TEST#MDE:TEST@RESULT:OK',
+        lines: const <String>['TEST', 'TEST', 'TEST-0000'],
+        pageWidth: s.labelWidthPx,
+        pageHeight: s.labelHeightPx,
+        offsetX: s.offsetX,
+        offsetY: s.offsetY,
+        fontSize: s.fontSize.round(),
+      );
+      await controller.printer.printPage(
+        page,
+        density: s.density,
+        taskPreference: s.printTaskPreference,
+      );
+      if (mounted) {
+        await showAlert(
+          context,
+          title: '测试打印完成',
+          message:
+              '任务：${controller.printer.lastPrintTask}'
+              '（${controller.printer.lastPrintTaskReason}）',
+        );
+      }
+    } catch (error) {
+      if (mounted) {
+        await showAlert(
+          context,
+          title: '测试打印失败',
+          message:
+              '${describePrinterError(error)}\n\n'
+              '任务：${controller.printer.lastPrintTask}'
+              '（${controller.printer.lastPrintTaskReason}）',
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _testing = false);
+    }
+  }
+
   Future<void> _save() async {
     final controller = AppScope.of(context);
     final old = controller.settings.settings;
@@ -145,8 +199,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       await controller.settings.changePrefix(a: newA, b: newB, c: newC);
     } else {
       final serial = int.tryParse(_serial.text.trim());
-      if (serial == null ||
-          !const CodeGenerator().isSerialInRange(serial)) {
+      if (serial == null || !const CodeGenerator().isSerialInRange(serial)) {
         await showAlert(
           context,
           title: '序号无效',
@@ -164,19 +217,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final labelHeightMm = double.tryParse(_labelHeightMm.text.trim());
     final labelDpi = int.tryParse(_labelDpi.text.trim());
     if (labelWidthMm == null || labelWidthMm < 5 || labelWidthMm > 120) {
-      await showAlert(
-        context,
-        title: '纸张宽度无效',
-        message: '宽度需为 5 ~ 120 毫米。',
-      );
+      await showAlert(context, title: '纸张宽度无效', message: '宽度需为 5 ~ 120 毫米。');
       return;
     }
     if (labelHeightMm == null || labelHeightMm < 5 || labelHeightMm > 500) {
-      await showAlert(
-        context,
-        title: '纸张高度无效',
-        message: '高度需为 5 ~ 500 毫米。',
-      );
+      await showAlert(context, title: '纸张高度无效', message: '高度需为 5 ~ 500 毫米。');
       return;
     }
     if (labelDpi == null || labelDpi < 100 || labelDpi > 600) {
@@ -203,12 +248,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
     }
     await controller.settings.setDensity(density);
 
-    await controller.settings
-        .setOffsetX(int.tryParse(_offsetX.text.trim()) ?? old.offsetX);
-    await controller.settings
-        .setOffsetY(int.tryParse(_offsetY.text.trim()) ?? old.offsetY);
-    await controller.settings
-        .setFontSize(double.tryParse(_fontSize.text.trim()) ?? old.fontSize);
+    await controller.settings.setOffsetX(
+      int.tryParse(_offsetX.text.trim()) ?? old.offsetX,
+    );
+    await controller.settings.setOffsetY(
+      int.tryParse(_offsetY.text.trim()) ?? old.offsetY,
+    );
+    await controller.settings.setFontSize(
+      double.tryParse(_fontSize.text.trim()) ?? old.fontSize,
+    );
     if (!mounted) return;
     await showAlert(context, title: '已保存');
     if (mounted) Navigator.of(context).pop();
@@ -312,19 +360,138 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     child: const Text('断开'),
                   ),
                 const SizedBox(width: 8),
-                ShadButton(
-                  onPressed: _reconnect,
-                  child: const Text('重新连接'),
-                ),
+                ShadButton(onPressed: _reconnect, child: const Text('重新连接')),
               ],
             ),
           ),
+          const SizedBox(height: 16),
+          _compatCard(controller),
+          const SizedBox(height: 16),
+          _diagnosticsCard(controller),
           const SizedBox(height: 24),
           ShadButton(
             width: double.infinity,
             height: 48,
             onPressed: _save,
             child: const Text('保存'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// 打印任务手动切换（兼容性设置，立即生效）。
+  Widget _compatCard(AppController controller) {
+    final current = controller.settings.settings.printTaskPreference;
+    final diag = controller.printer.diagnostics(preference: current);
+    return ShadCard(
+      title: const Text('打印任务（兼容性）'),
+      description: const Text(
+        '部分型号（如 Z401/B32 系列）不在打印库的自动识别表中，'
+        '将使用兜底任务。若打印异常，可在此逐个切换任务后测试打印。',
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              for (final option in PrinterTaskPreference.values)
+                if (option == current)
+                  ShadButton(onPressed: null, child: Text(option.label))
+                else
+                  ShadButton.outline(
+                    onPressed: () async {
+                      await controller.settings.setPrintTaskPreference(option);
+                      if (mounted) setState(() {});
+                    },
+                    child: Text(option.label),
+                  ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Text(
+            '当前将使用：${diag.resolvedTask}（${diag.resolvedReason}）',
+            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// 打印机诊断信息（排查用）。
+  Widget _diagnosticsCard(AppController controller) {
+    final diag = controller.printer.diagnostics(
+      preference: controller.settings.settings.printTaskPreference,
+    );
+    final printer = controller.printer;
+    return ShadCard(
+      title: const Text('打印机诊断'),
+      description: Text(
+        controller.isConnected
+            ? '连接信息与当前任务解析结果；详细日志见运行控制台（标签见 [标签助手]）'
+            : '打印机未连接时显示的是上次连接的信息',
+      ),
+      footer: Row(
+        mainAxisAlignment: MainAxisAlignment.end,
+        children: [
+          ShadButton.outline(
+            onPressed: () => setState(() {}),
+            child: const Text('刷新信息'),
+          ),
+          const SizedBox(width: 8),
+          ShadButton(
+            onPressed: _testing ? null : _testPrint,
+            child: const Text('打印测试页'),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _diagRow('设备', diag.deviceName ?? '-'),
+          _diagRow(
+            '型号',
+            '${diag.modelName ?? '未知'}（ID ${diag.modelId ?? '-'}）',
+          ),
+          _diagRow(
+            'DPI / 打印头',
+            '${diag.dpi ?? '-'} dpi / ${diag.printheadPixels ?? '-'} px',
+          ),
+          _diagRow('协议版本', '${diag.protocolVersion ?? '-'}'),
+          _diagRow('连接结果', diag.connectResult ?? '-'),
+          _diagRow(
+            '软件 / 硬件',
+            '${diag.softwareVersion ?? '-'} / ${diag.hardwareVersion ?? '-'}',
+          ),
+          _diagRow('序列号', diag.serial ?? '-'),
+          _diagRow('自动识别任务', diag.detectedTask ?? '未识别'),
+          if (printer.lastPrintTask != null)
+            _diagRow(
+              '最近打印',
+              '${printer.lastPrintTask}（${printer.lastPrintTaskReason}）',
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _diagRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 8),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 120,
+            child: Text(
+              label,
+              style: const TextStyle(fontSize: 13, color: Colors.black54),
+            ),
+          ),
+          Expanded(
+            child: SelectableText(value, style: const TextStyle(fontSize: 13)),
           ),
         ],
       ),

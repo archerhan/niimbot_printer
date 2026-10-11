@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:printer/models/app_settings.dart';
 import 'package:printer/services/settings_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -26,6 +27,7 @@ void main() {
     // 40 × 20 mm @ 300dpi
     expect(s.labelWidthPx, 472);
     expect(s.labelHeightPx, 236);
+    expect(s.printTaskPreference, PrinterTaskPreference.auto);
   });
 
   test('可读写纸张尺寸与 DPI', () async {
@@ -63,5 +65,14 @@ void main() {
     await service.setLastDevice(id: 'AA:BB', name: 'B1');
     expect(service.settings.lastDeviceId, 'AA:BB');
     expect(service.settings.lastDeviceName, 'B1');
+  });
+
+  test('打印任务偏好可读写，非法值回退 auto', () async {
+    await service.setPrintTaskPreference(PrinterTaskPreference.d110mV4);
+    expect(service.settings.printTaskPreference, PrinterTaskPreference.d110mV4);
+    await service.setPrintTaskPreference(PrinterTaskPreference.b21V1);
+    expect(service.settings.printTaskPreference, PrinterTaskPreference.b21V1);
+    expect(PrinterTaskPreference.fromKey('bogus'), PrinterTaskPreference.auto);
+    expect(PrinterTaskPreference.fromKey(null), PrinterTaskPreference.auto);
   });
 }

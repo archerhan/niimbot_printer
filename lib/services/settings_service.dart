@@ -23,29 +23,33 @@ class SettingsService {
   static const String kDensity = 'density';
   static const String kLastDeviceId = 'lastDeviceId';
   static const String kLastDeviceName = 'lastDeviceName';
+  static const String kPrintTask = 'printTask';
 
   /// 读取完整设置快照。
   AppSettings get settings => AppSettings(
-        prefixA: _prefs.getString(kPrefixA) ?? AppSettings.defaultPrefixA,
-        prefixB: _prefs.getString(kPrefixB) ?? AppSettings.defaultPrefixB,
-        prefixC: _prefs.getString(kPrefixC) ?? AppSettings.defaultPrefixC,
-        serialNumber:
-            _prefs.getInt(kSerialNumber) ?? AppSettings.defaultSerialNumber,
-        serialLength:
-            _prefs.getInt(kSerialLength) ?? AppSettings.defaultSerialLength,
-        continuousMode: _prefs.getBool(kContinuousMode) ?? false,
-        offsetX: _prefs.getInt(kOffsetX) ?? 0,
-        offsetY: _prefs.getInt(kOffsetY) ?? 0,
-        labelWidthMm: _prefs.getDouble(kLabelWidthMm) ??
-            AppSettings.defaultLabelWidthMm,
-        labelHeightMm: _prefs.getDouble(kLabelHeightMm) ??
-            AppSettings.defaultLabelHeightMm,
-        labelDpi: _prefs.getInt(kLabelDpi) ?? AppSettings.defaultLabelDpi,
-        fontSize: _prefs.getDouble(kFontSize) ?? AppSettings.defaultFontSize,
-        density: _prefs.getInt(kDensity) ?? AppSettings.defaultDensity,
-        lastDeviceId: _prefs.getString(kLastDeviceId) ?? '',
-        lastDeviceName: _prefs.getString(kLastDeviceName) ?? '',
-      );
+    prefixA: _prefs.getString(kPrefixA) ?? AppSettings.defaultPrefixA,
+    prefixB: _prefs.getString(kPrefixB) ?? AppSettings.defaultPrefixB,
+    prefixC: _prefs.getString(kPrefixC) ?? AppSettings.defaultPrefixC,
+    serialNumber:
+        _prefs.getInt(kSerialNumber) ?? AppSettings.defaultSerialNumber,
+    serialLength:
+        _prefs.getInt(kSerialLength) ?? AppSettings.defaultSerialLength,
+    continuousMode: _prefs.getBool(kContinuousMode) ?? false,
+    offsetX: _prefs.getInt(kOffsetX) ?? 0,
+    offsetY: _prefs.getInt(kOffsetY) ?? 0,
+    labelWidthMm:
+        _prefs.getDouble(kLabelWidthMm) ?? AppSettings.defaultLabelWidthMm,
+    labelHeightMm:
+        _prefs.getDouble(kLabelHeightMm) ?? AppSettings.defaultLabelHeightMm,
+    labelDpi: _prefs.getInt(kLabelDpi) ?? AppSettings.defaultLabelDpi,
+    fontSize: _prefs.getDouble(kFontSize) ?? AppSettings.defaultFontSize,
+    density: _prefs.getInt(kDensity) ?? AppSettings.defaultDensity,
+    lastDeviceId: _prefs.getString(kLastDeviceId) ?? '',
+    lastDeviceName: _prefs.getString(kLastDeviceName) ?? '',
+    printTaskPreference: PrinterTaskPreference.fromKey(
+      _prefs.getString(kPrintTask),
+    ),
+  );
 
   int get serialNumber =>
       _prefs.getInt(kSerialNumber) ?? AppSettings.defaultSerialNumber;
@@ -77,6 +81,10 @@ class SettingsService {
     await _prefs.setString(kLastDeviceId, id);
     await _prefs.setString(kLastDeviceName, name);
   }
+
+  /// 打印任务偏好（兼容性设置，立即生效）。
+  Future<void> setPrintTaskPreference(PrinterTaskPreference value) =>
+      _prefs.setString(kPrintTask, value.key);
 
   /// 修改前缀并重置序号为 1（调用方需先做二次确认）。
   Future<void> changePrefix({String? a, String? b, String? c}) async {

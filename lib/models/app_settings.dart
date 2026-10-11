@@ -1,3 +1,31 @@
+/// 打印任务偏好（兼容性设置）。
+///
+/// 部分型号不在 niim_blue_flutter 的自动识别映射表中（如 Z401/B32 系列），
+/// 自动兜底任务工作不正常时，可在此手动指定。
+enum PrinterTaskPreference {
+  auto('auto', '自动（推荐）'),
+  b1('b1', 'B1'),
+  d110mV4('d110mV4', 'D110M_V4'),
+  d110('d110', 'D110'),
+  b21V1('b21V1', 'B21_V1'),
+  d11V1('d11V1', 'D11_V1');
+
+  const PrinterTaskPreference(this.key, this.label);
+
+  /// 持久化用的字符串键。
+  final String key;
+
+  /// 界面显示名。
+  final String label;
+
+  static PrinterTaskPreference fromKey(String? key) {
+    for (final value in values) {
+      if (value.key == key) return value;
+    }
+    return auto;
+  }
+}
+
 /// 应用设置快照。
 class AppSettings {
   const AppSettings({
@@ -16,6 +44,7 @@ class AppSettings {
     this.density = 3,
     this.lastDeviceId = '',
     this.lastDeviceName = '',
+    this.printTaskPreference = PrinterTaskPreference.auto,
   });
 
   static const String defaultPrefixA = 'ADM32672805';
@@ -44,6 +73,7 @@ class AppSettings {
   final int density;
   final String lastDeviceId;
   final String lastDeviceName;
+  final PrinterTaskPreference printTaskPreference;
 
   /// 纸张宽度（像素/打印点）。
   int get labelWidthPx => (labelWidthMm * labelDpi / 25.4).round();
@@ -67,6 +97,7 @@ class AppSettings {
     int? density,
     String? lastDeviceId,
     String? lastDeviceName,
+    PrinterTaskPreference? printTaskPreference,
   }) {
     return AppSettings(
       prefixA: prefixA ?? this.prefixA,
@@ -84,6 +115,7 @@ class AppSettings {
       density: density ?? this.density,
       lastDeviceId: lastDeviceId ?? this.lastDeviceId,
       lastDeviceName: lastDeviceName ?? this.lastDeviceName,
+      printTaskPreference: printTaskPreference ?? this.printTaskPreference,
     );
   }
 }

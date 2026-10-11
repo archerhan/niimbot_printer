@@ -7,6 +7,7 @@ import 'package:shadcn_ui/shadcn_ui.dart';
 import '../core/code_generator.dart';
 import '../core/label_job.dart';
 import '../models/print_record.dart';
+import '../services/label_printer.dart';
 import '../services/permission_service.dart';
 import '../state/app_controller.dart';
 import '../state/app_scope.dart';
@@ -90,11 +91,7 @@ class _HomeScreenState extends State<HomeScreen> {
     final granted = await const PermissionService().ensureCamera();
     if (!granted) {
       if (mounted) {
-        await showAlert(
-          context,
-          title: '缺少相机权限',
-          message: '请在系统设置中授予相机权限。',
-        );
+        await showAlert(context, title: '缺少相机权限', message: '请在系统设置中授予相机权限。');
       }
       return;
     }
@@ -147,7 +144,8 @@ class _HomeScreenState extends State<HomeScreen> {
       await showAlert(
         context,
         title: '序号超限',
-        message: '当前序号 ${job.serial} 已超过上限 '
+        message:
+            '当前序号 ${job.serial} 已超过上限 '
             '${CodeGenerator.maxSerial}，请在设置中调整。',
       );
       return;
@@ -200,7 +198,8 @@ class _HomeScreenState extends State<HomeScreen> {
     }
 
     if (!mounted) return;
-    final confirmed = await showShadDialog<bool>(
+    final confirmed =
+        await showShadDialog<bool>(
           context: context,
           builder: (ctx) => ShadDialog(
             title: const Text('打印预览'),
@@ -246,11 +245,7 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<void> _printJob(LabelJob job) async {
     final controller = AppScope.of(context);
     if (!controller.isConnected) {
-      await showAlert(
-        context,
-        title: '打印机未连接',
-        message: '请先连接精臣 B1 打印机。',
-      );
+      await showAlert(context, title: '打印机未连接', message: '请先连接精臣 B1 打印机。');
       return;
     }
 
@@ -265,10 +260,19 @@ class _HomeScreenState extends State<HomeScreen> {
           message: '产品编号：${job.productCode}',
         );
       } else {
+        final diag = controller.printer.diagnostics(
+          preference: controller.settings.settings.printTaskPreference,
+        );
         await showAlert(
           context,
           title: '打印失败',
-          message: '${outcome.error}',
+          message:
+              '${describePrinterError(outcome.error)}\n\n'
+              '打印任务：${diag.resolvedTask}（${diag.resolvedReason}）\n'
+              '型号：${diag.modelName ?? '未知'}（ID ${diag.modelId ?? '-'}），'
+              '协议版本 ${diag.protocolVersion ?? '-'}\n\n'
+              '可在「设置 → 打印任务（兼容性）」切换任务后，'
+              '用「打印测试页」快速验证。',
         );
       }
     } finally {
@@ -349,9 +353,16 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _connectionCard(AppController controller) {
+    final diag = controller.printer.diagnostics(
+      preference: controller.settings.settings.printTaskPreference,
+    );
+    final description = controller.isConnected
+        ? '${controller.statusText}\n'
+              '打印任务：${diag.resolvedTask}（${diag.resolvedReason}）'
+        : controller.statusText;
     return ShadCard(
       title: const Text('打印机'),
-      description: Text(controller.statusText),
+      description: Text(description),
       footer: Row(
         mainAxisAlignment: MainAxisAlignment.end,
         children: [
