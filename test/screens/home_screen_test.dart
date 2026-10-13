@@ -47,6 +47,8 @@ void main() {
     expect(find.text('扫描配件码'), findsOneWidget);
     expect(find.text('当前产品编号'), findsOneWidget);
     expect(find.text('ADM32672805CTX6O60001'), findsOneWidget);
+    // 首页显眼展示当前系列，避免打错系列
+    expect(find.text('系列：ADM32672805CTX6O6'), findsOneWidget);
     expect(find.text('未连接'), findsOneWidget);
   });
 }

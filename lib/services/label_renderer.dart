@@ -93,6 +93,8 @@ class LabelRenderer {
 
     final ys = <int>[layout.line1Y, layout.line2Y, layout.line3Y];
     for (var i = 0; i < lines.length && i < ys.length; i++) {
+      // 前缀为空的行跳过绘制（保持该行留白，不改变其它行位置）。
+      if (lines[i].isEmpty) continue;
       await page.addText(
         lines[i],
         TextOptions(

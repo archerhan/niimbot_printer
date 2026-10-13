@@ -137,9 +137,15 @@ class _HomeScreenState extends State<HomeScreen> {
         qrContent: previous.qrContent,
         lines: previous.labelLines,
         originalId: previous.id ?? 0,
+        seriesId: previous.seriesId,
+        seriesName: previous.seriesName,
       );
     } else {
-      job = LabelJob.build(settings: config, accessoryCode: accessoryCode);
+      job = LabelJob.build(
+        series: config.currentSeries,
+        accessoryCode: accessoryCode,
+        serialLength: config.serialLength,
+      );
     }
 
     if (!mounted) return;
@@ -153,7 +159,9 @@ class _HomeScreenState extends State<HomeScreen> {
       return;
     }
 
-    final lastSuccess = await controller.history.lastSuccess();
+    final lastSuccess = await controller.history.lastSuccess(
+      seriesId: job.seriesId,
+    );
     final shouldWarn = controller.skipChecker.shouldWarn(
       currentSerial: job.serial,
       lastSuccessSerial: lastSuccess?.serial,
@@ -205,6 +213,7 @@ class _HomeScreenState extends State<HomeScreen> {
           builder: (ctx) => ShadDialog(
             title: const Text('打印预览'),
             description: Text(
+              '产品系列：${job.seriesName}\n'
               '配件编号：${job.accessoryCode}\n'
               '纸张：${_fmtMm(controller.settings.settings.labelWidthMm)}'
               '×${_fmtMm(controller.settings.settings.labelHeightMm)} mm'
@@ -278,11 +287,12 @@ class _HomeScreenState extends State<HomeScreen> {
 
   String _currentProductCode(AppController controller) {
     final s = controller.settings.settings;
+    final series = s.currentSeries;
     return _generator.buildProductCode(
-      prefixA: s.prefixA,
-      prefixB: s.prefixB,
-      prefixC: s.prefixC,
-      serial: s.serialNumber,
+      prefixA: series.prefixA,
+      prefixB: series.prefixB,
+      prefixC: series.prefixC,
+      serial: series.serialNumber,
       serialLength: s.serialLength,
     );
   }
@@ -371,11 +381,31 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _codeCard(AppController controller) {
+    final series = controller.settings.settings.currentSeries;
     return ShadCard(
-      title: const Text('当前产品编号'),
-      child: SelectableText(
-        _currentProductCode(controller),
-        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+      title: Row(
+        children: [
+          const Expanded(child: Text('当前产品编号')),
+          ShadBadge(child: Text('系列：${series.displayName}')),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SelectableText(
+            _currentProductCode(controller),
+            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            '下一次打印使用序号 '
+            '${series.serialNumber.toString().padLeft(
+                  controller.settings.settings.serialLength,
+                  '0',
+                )}',
+            style: const TextStyle(fontSize: 12, color: Colors.black54),
+          ),
+        ],
       ),
     );
   }

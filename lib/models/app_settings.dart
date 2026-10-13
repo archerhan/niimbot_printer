@@ -1,10 +1,10 @@
+import 'product_series.dart';
+
 /// 应用设置快照。
 class AppSettings {
   const AppSettings({
-    this.prefixA = defaultPrefixA,
-    this.prefixB = defaultPrefixB,
-    this.prefixC = defaultPrefixC,
-    this.serialNumber = defaultSerialNumber,
+    this.seriesList = const <ProductSeries>[],
+    this.currentSeriesId = '',
     this.serialLength = defaultSerialLength,
     this.continuousMode = false,
     this.offsetX = 0,
@@ -13,15 +13,11 @@ class AppSettings {
     this.labelHeightMm = defaultLabelHeightMm,
     this.labelDpi = defaultLabelDpi,
     this.fontSize = defaultFontSize,
-    this.density = 3,
+    this.density = defaultDensity,
     this.lastDeviceId = '',
     this.lastDeviceName = '',
   });
 
-  static const String defaultPrefixA = 'ADM32672805';
-  static const String defaultPrefixB = 'CTX';
-  static const String defaultPrefixC = '6O6';
-  static const int defaultSerialNumber = 1;
   static const int defaultSerialLength = 4;
   static const double defaultFontSize = 24;
   static const int defaultDensity = 3;
@@ -29,10 +25,12 @@ class AppSettings {
   static const double defaultLabelHeightMm = 20;
   static const int defaultLabelDpi = 300;
 
-  final String prefixA;
-  final String prefixB;
-  final String prefixC;
-  final int serialNumber;
+  /// 产品系列列表（正常情况下至少一个）。
+  final List<ProductSeries> seriesList;
+
+  /// 当前产品系列的 id。
+  final String currentSeriesId;
+
   final int serialLength;
   final bool continuousMode;
   final int offsetX;
@@ -45,6 +43,15 @@ class AppSettings {
   final String lastDeviceId;
   final String lastDeviceName;
 
+  /// 当前产品系列。列表为空或 id 找不到时回退（正常情况下不会发生）。
+  ProductSeries get currentSeries {
+    if (seriesList.isEmpty) return ProductSeries.fallback;
+    for (final series in seriesList) {
+      if (series.id == currentSeriesId) return series;
+    }
+    return seriesList.first;
+  }
+
   /// 纸张宽度（像素/打印点）。
   int get labelWidthPx => (labelWidthMm * labelDpi / 25.4).round();
 
@@ -52,10 +59,8 @@ class AppSettings {
   int get labelHeightPx => (labelHeightMm * labelDpi / 25.4).round();
 
   AppSettings copyWith({
-    String? prefixA,
-    String? prefixB,
-    String? prefixC,
-    int? serialNumber,
+    List<ProductSeries>? seriesList,
+    String? currentSeriesId,
     int? serialLength,
     bool? continuousMode,
     int? offsetX,
@@ -69,10 +74,8 @@ class AppSettings {
     String? lastDeviceName,
   }) {
     return AppSettings(
-      prefixA: prefixA ?? this.prefixA,
-      prefixB: prefixB ?? this.prefixB,
-      prefixC: prefixC ?? this.prefixC,
-      serialNumber: serialNumber ?? this.serialNumber,
+      seriesList: seriesList ?? this.seriesList,
+      currentSeriesId: currentSeriesId ?? this.currentSeriesId,
       serialLength: serialLength ?? this.serialLength,
       continuousMode: continuousMode ?? this.continuousMode,
       offsetX: offsetX ?? this.offsetX,

@@ -1,7 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:niim_blue_flutter/niim_blue_flutter.dart';
 import 'package:printer/core/label_job.dart';
-import 'package:printer/models/app_settings.dart';
+import 'package:printer/models/product_series.dart';
 import 'package:printer/services/history_repository.dart';
 import 'package:printer/services/label_printer.dart';
 import 'package:printer/services/print_service.dart';
@@ -57,9 +57,9 @@ void main() {
     await history.close();
   });
 
-  test('打印成功：写成功历史并递增序号', () async {
+  test('打印成功：写成功历史并递增当前系列序号', () async {
     final job = LabelJob.build(
-      settings: settings.settings,
+      series: settings.currentSeries,
       accessoryCode: 'MDE62564302CDFL9D',
     );
     final outcome = await service.print(job);
@@ -67,17 +67,20 @@ void main() {
     expect(outcome.success, isTrue);
     expect(printer.printCount, 1);
     expect(await history.count(), 1);
-    expect(settings.serialNumber, 2);
+    expect(settings.currentSeries.serialNumber, 2);
+
     final record = (await history.recent()).first;
     expect(record.success, isTrue);
     expect(record.serial, 1);
     expect(record.deviceId, 'FAKE:01');
+    expect(record.seriesId, settings.currentSeries.id);
+    expect(record.seriesName, settings.currentSeries.displayName);
   });
 
   test('打印失败：写失败历史且序号不变', () async {
     printer.fail = true;
     final job = LabelJob.build(
-      settings: settings.settings,
+      series: settings.currentSeries,
       accessoryCode: 'MDE62564302CDFL9D',
     );
     final outcome = await service.print(job);
@@ -85,7 +88,7 @@ void main() {
     expect(outcome.success, isFalse);
     expect(outcome.error, isNotNull);
     expect(await history.count(), 1);
-    expect(settings.serialNumber, 1);
+    expect(settings.currentSeries.serialNumber, 1);
     expect((await history.recent()).first.success, isFalse);
   });
 
@@ -101,26 +104,38 @@ void main() {
     final outcome = await service.print(job);
 
     expect(outcome.success, isTrue);
-    expect(settings.serialNumber, 1);
+    expect(settings.currentSeries.serialNumber, 1);
     final record = (await history.recent()).first;
     expect(record.isReprint, isTrue);
     expect(record.originalId, 3);
   });
 
-  test('自定义初始序号生效', () async {
-    await settings.setSerialNumber(7);
+  test('打印只递增当前系列，其它系列不受影响', () async {
+    await settings.addSeries(
+      const ProductSeries(id: 's2', createdAt: 1, prefixA: 'ZZZ'),
+    );
+    await settings.switchSeries('s2');
+
     final job = LabelJob.build(
-      settings: settings.settings,
+      series: settings.currentSeries,
       accessoryCode: 'X',
     );
-    expect(job.qrContent, contains('6O6'));
+    final outcome = await service.print(job);
+
+    expect(outcome.success, isTrue);
+    expect(settings.currentSeries.serialNumber, 2);
+    expect(settings.seriesList.first.serialNumber, 1);
+  });
+
+  test('自定义初始序号生效', () async {
+    await settings.setCurrentSerial(7);
+    final job = LabelJob.build(
+      series: settings.currentSeries,
+      accessoryCode: 'X',
+    );
     expect(job.serial, 7);
     final outcome = await service.print(job);
     expect(outcome.success, isTrue);
-    expect(settings.serialNumber, 8);
-  });
-
-  test('默认设置快照一致性', () async {
-    expect(settings.settings.prefixA, AppSettings.defaultPrefixA);
+    expect(settings.currentSeries.serialNumber, 8);
   });
 }

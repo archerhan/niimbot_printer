@@ -86,6 +86,30 @@ void main() {
         <String>['ADM32672805', 'CTX', '6O6-0006'],
       );
     });
+
+    test('前缀 C 为空时第三行只显示序号', () {
+      expect(
+        gen.buildLabelLines(
+          prefixA: 'ADM',
+          prefixB: 'CTX',
+          prefixC: '',
+          serial: 5,
+        ),
+        <String>['ADM', 'CTX', '0005'],
+      );
+    });
+
+    test('前缀为空时保留空行', () {
+      expect(
+        gen.buildLabelLines(
+          prefixA: 'ADM',
+          prefixB: '',
+          prefixC: '6O6',
+          serial: 1,
+        ),
+        <String>['ADM', '', '6O6-0001'],
+      );
+    });
   });
 
   group('isSerialInRange', () {

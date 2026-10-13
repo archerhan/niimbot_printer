@@ -67,6 +67,9 @@ class CodeGenerator {
 
   /// 标签上人眼可见的三行文字：
   /// 第 1 行 prefixA，第 2 行 prefixB，第 3 行 prefixC-序号。
+  ///
+  /// 前缀为空时对应行保留为空行（维持三行版式）；
+  /// 前缀 C 为空时第 3 行只显示序号。
   List<String> buildLabelLines({
     required String prefixA,
     required String prefixB,
@@ -74,10 +77,11 @@ class CodeGenerator {
     required int serial,
     int serialLength = defaultSerialLength,
   }) {
+    final padded = formatSerial(serial, serialLength);
     return <String>[
       prefixA,
       prefixB,
-      '$prefixC-${formatSerial(serial, serialLength)}',
+      prefixC.isEmpty ? padded : '$prefixC-$padded',
     ];
   }
 

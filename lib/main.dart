@@ -17,6 +17,8 @@ Future<void> main() async {
 
   final prefs = await SharedPreferences.getInstance();
   final settings = SettingsService(prefs);
+  // 老版本只有一组全局前缀，这里迁移成第一个产品系列。
+  await settings.migrateIfNeeded();
 
   final dbPath = p.join(await getDatabasesPath(), 'printer.db');
   final history = await HistoryRepository.open(path: dbPath);

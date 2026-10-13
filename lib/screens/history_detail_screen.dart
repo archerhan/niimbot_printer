@@ -59,6 +59,10 @@ class HistoryDetailScreen extends StatelessWidget {
                 _row('配件编号', record.accessoryCode, selectable: true),
                 _row('序号', serialText),
                 _row('二维码内容', record.qrContent, selectable: true),
+                _row(
+                  '产品系列',
+                  record.seriesName.isEmpty ? '—' : record.seriesName,
+                ),
               ],
             ),
           ),

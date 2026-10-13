@@ -6,7 +6,9 @@ import '../core/code_generator.dart';
 import '../services/permission_service.dart';
 import '../state/app_scope.dart';
 import '../widgets/app_dialogs.dart';
+import 'series_list_screen.dart';
 
+/// 设置页：产品系列入口 + 序号 + 打印相关参数。
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
 
@@ -15,17 +17,15 @@ class SettingsScreen extends StatefulWidget {
 }
 
 class _SettingsScreenState extends State<SettingsScreen> {
-  final TextEditingController _a = TextEditingController();
-  final TextEditingController _b = TextEditingController();
-  final TextEditingController _c = TextEditingController();
   final TextEditingController _serial = TextEditingController();
   final TextEditingController _offsetX = TextEditingController();
   final TextEditingController _offsetY = TextEditingController();
+  final TextEditingController _fontSize = TextEditingController();
+  final TextEditingController _density = TextEditingController();
   final TextEditingController _labelWidthMm = TextEditingController();
   final TextEditingController _labelHeightMm = TextEditingController();
   final TextEditingController _labelDpi = TextEditingController();
-  final TextEditingController _fontSize = TextEditingController();
-  final TextEditingController _density = TextEditingController();
+
   bool _continuous = false;
   bool _initialized = false;
 
@@ -33,40 +33,53 @@ class _SettingsScreenState extends State<SettingsScreen> {
   void didChangeDependencies() {
     super.didChangeDependencies();
     if (_initialized) return;
-    final s = AppScope.of(context).settings.settings;
-    _a.text = s.prefixA;
-    _b.text = s.prefixB;
-    _c.text = s.prefixC;
-    _serial.text = s.serialNumber.toString();
+    _loadFromSettings();
+    _initialized = true;
+  }
+
+  void _loadFromSettings() {
+    final controller = AppScope.of(context);
+    final s = controller.settings.settings;
+    _serial.text = s.currentSeries.serialNumber.toString();
     _offsetX.text = s.offsetX.toString();
     _offsetY.text = s.offsetY.toString();
+    _fontSize.text = s.fontSize.toStringAsFixed(0);
+    _density.text = s.density.toString();
     _labelWidthMm.text = _fmt(s.labelWidthMm);
     _labelHeightMm.text = _fmt(s.labelHeightMm);
     _labelDpi.text = s.labelDpi.toString();
-    _fontSize.text = s.fontSize.toStringAsFixed(0);
-    _density.text = s.density.toString();
     _continuous = s.continuousMode;
-    _initialized = true;
   }
 
   @override
   void dispose() {
-    for (final c in <TextEditingController>[
-      _a,
-      _b,
-      _c,
+    for (final controller in <TextEditingController>[
       _serial,
       _offsetX,
       _offsetY,
+      _fontSize,
+      _density,
       _labelWidthMm,
       _labelHeightMm,
       _labelDpi,
-      _fontSize,
-      _density,
     ]) {
-      c.dispose();
+      controller.dispose();
     }
     super.dispose();
+  }
+
+  String _fmt(double value) {
+    final text = value.toStringAsFixed(1);
+    return text.endsWith('.0') ? text.substring(0, text.length - 2) : text;
+  }
+
+  Future<void> _openSeriesManager() async {
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute<void>(builder: (_) => const SeriesListScreen()),
+    );
+    if (!mounted) return;
+    // 系列可能已切换或序号已变，重新载入表单。
+    setState(_loadFromSettings);
   }
 
   Future<void> _reconnect() async {
@@ -100,7 +113,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       await showAlert(
         context,
         title: '未找到打印机',
-        message: '请确认 B1 已开机、蓝牙已开启，并处于配对状态。',
+        message: '请确认打印机已开机、蓝牙已开启，并处于配对状态。',
       );
       return;
     }
@@ -119,46 +132,19 @@ class _SettingsScreenState extends State<SettingsScreen> {
     if (mounted) setState(() {});
   }
 
-  String _fmt(double value) {
-    final text = value.toStringAsFixed(1);
-    return text.endsWith('.0') ? text.substring(0, text.length - 2) : text;
-  }
-
   Future<void> _save() async {
     final controller = AppScope.of(context);
     final old = controller.settings.settings;
 
-    final newA = _a.text.trim();
-    final newB = _b.text.trim();
-    final newC = _c.text.trim();
-    final prefixChanged =
-        newA != old.prefixA || newB != old.prefixB || newC != old.prefixC;
-
-    if (prefixChanged) {
-      final ok = await showConfirm(
+    final serial = int.tryParse(_serial.text.trim());
+    if (serial == null || !const CodeGenerator().isSerialInRange(serial)) {
+      await showAlert(
         context,
-        title: '修改前缀将重置序号',
-        message: '前缀已变更，序号将重置为 0001，是否继续？',
-        confirmText: '继续',
+        title: '序号无效',
+        message: '序号需为 1 ~ ${CodeGenerator.maxSerial} 的整数。',
       );
-      if (!ok) return;
-      await controller.settings.changePrefix(a: newA, b: newB, c: newC);
-    } else {
-      final serial = int.tryParse(_serial.text.trim());
-      if (serial == null ||
-          !const CodeGenerator().isSerialInRange(serial)) {
-        await showAlert(
-          context,
-          title: '序号无效',
-          message: '序号需为 1 ~ ${CodeGenerator.maxSerial} 的整数。',
-        );
-        return;
-      }
-      await controller.settings.setSerialNumber(serial);
+      return;
     }
-
-    await controller.settings.setContinuousMode(_continuous);
-    if (!mounted) return;
 
     final labelWidthMm = double.tryParse(_labelWidthMm.text.trim());
     final labelHeightMm = double.tryParse(_labelHeightMm.text.trim());
@@ -187,10 +173,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
       );
       return;
     }
-    await controller.settings.setLabelWidthMm(labelWidthMm);
-    await controller.settings.setLabelHeightMm(labelHeightMm);
-    await controller.settings.setLabelDpi(labelDpi);
-    if (!mounted) return;
 
     final density = int.tryParse(_density.text.trim());
     if (density == null || density < 1 || density > 15) {
@@ -201,14 +183,29 @@ class _SettingsScreenState extends State<SettingsScreen> {
       );
       return;
     }
-    await controller.settings.setDensity(density);
 
+    final fontSize = double.tryParse(_fontSize.text.trim());
+    if (fontSize == null || fontSize < 8 || fontSize > 200) {
+      await showAlert(
+        context,
+        title: '字号无效',
+        message: '字号需为 8 ~ 200。',
+      );
+      return;
+    }
+
+    await controller.settings.setCurrentSerial(serial);
+    await controller.settings.setContinuousMode(_continuous);
+    await controller.settings.setLabelWidthMm(labelWidthMm);
+    await controller.settings.setLabelHeightMm(labelHeightMm);
+    await controller.settings.setLabelDpi(labelDpi);
     await controller.settings
         .setOffsetX(int.tryParse(_offsetX.text.trim()) ?? old.offsetX);
     await controller.settings
         .setOffsetY(int.tryParse(_offsetY.text.trim()) ?? old.offsetY);
-    await controller.settings
-        .setFontSize(double.tryParse(_fontSize.text.trim()) ?? old.fontSize);
+    await controller.settings.setFontSize(fontSize);
+    await controller.settings.setDensity(density);
+
     if (!mounted) return;
     await showAlert(context, title: '已保存');
     if (mounted) Navigator.of(context).pop();
@@ -217,37 +214,75 @@ class _SettingsScreenState extends State<SettingsScreen> {
   @override
   Widget build(BuildContext context) {
     final controller = AppScope.of(context);
+    final settings = controller.settings.settings;
+    final series = settings.currentSeries;
+
     return Scaffold(
       appBar: AppBar(title: const Text('设置')),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
           ShadCard(
-            title: const Text('产品编号前缀'),
-            description: const Text('修改任一前缀都会重置序号'),
+            title: const Text('产品系列'),
+            description: const Text(
+              '产品编号 = 前缀 A + 前缀 B + 前缀 C + 序号。\n'
+              '不同产品系列的前缀不同，这里可以新增、修改、删除和切换。',
+            ),
             child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _field('前缀 A', _a),
-                _field('前缀 B', _b),
-                _field('前缀 C', _c),
+                const Text('当前系列', style: TextStyle(fontSize: 12)),
+                const SizedBox(height: 4),
+                Text(
+                  series.displayName,
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  '前缀：${_prefixPreview(series.prefixA, series.prefixB, series.prefixC)}'
+                  '　序号：${series.serialNumber.toString().padLeft(settings.serialLength, '0')}',
+                  style: const TextStyle(fontSize: 12, color: Colors.black54),
+                ),
+                const SizedBox(height: 12),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: ShadButton.outline(
+                    onPressed: _openSeriesManager,
+                    child: const Text('管理产品系列'),
+                  ),
+                ),
               ],
             ),
           ),
           const SizedBox(height: 16),
           ShadCard(
-            title: const Text('序号'),
-            description: const Text('手动修正当前序号（1 ~ 9999）'),
-            child: _field('当前序号', _serial, keyboardType: TextInputType.number),
+            title: const Text('当前系列序号'),
+            description: const Text(
+              '下一次打印使用的序号，打印成功后会 +1。\n'
+              '序号按系列各自记录，切换系列不会重置。',
+            ),
+            child: _field(
+              '序号',
+              _serial,
+              keyboardType: TextInputType.number,
+              helper: '范围 1 ~ ${CodeGenerator.maxSerial}',
+            ),
           ),
           const SizedBox(height: 16),
           ShadCard(
             title: const Text('连续模式'),
-            description: const Text('开启后扫码直接打印，跳过预览'),
+            description: const Text(
+              '开启后，扫到配件码会跳过预览直接打印；\n'
+              '打印失败或断连时会自动暂停并提示。',
+            ),
             child: Align(
               alignment: Alignment.centerLeft,
               child: ShadSwitch(
                 value: _continuous,
-                onChanged: (v) => setState(() => _continuous = v),
+                onChanged: (value) => setState(() => _continuous = value),
               ),
             ),
           ),
@@ -255,8 +290,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ShadCard(
             title: const Text('打印纸尺寸'),
             description: const Text(
-              '单位：毫米（像素 = 毫米 × DPI ÷ 25.4）。\n'
-              'DPI：B1 为 203，Z401 为 300，连接后自动识别',
+              '填实际标签纸的毫米尺寸，预览与打印都按它换算。\n'
+              'DPI 由打印机型号决定：B1 为 203，Z401 为 300（连接后自动识别）。',
             ),
             child: Column(
               children: [
@@ -266,6 +301,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   keyboardType: const TextInputType.numberWithOptions(
                     decimal: true,
                   ),
+                  helper: '例如 40',
                 ),
                 _field(
                   '高度（毫米）',
@@ -273,50 +309,80 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   keyboardType: const TextInputType.numberWithOptions(
                     decimal: true,
                   ),
+                  helper: '例如 20',
                 ),
-                _field('DPI', _labelDpi, keyboardType: TextInputType.number),
+                _field(
+                  'DPI',
+                  _labelDpi,
+                  keyboardType: TextInputType.number,
+                  helper: '每英寸打印点数，连接打印机后会自动更新',
+                ),
               ],
             ),
           ),
           const SizedBox(height: 16),
           ShadCard(
             title: const Text('标签排版微调'),
-            description: const Text('用于现场校正位置与字号'),
+            description: const Text(
+              '打印位置有偏差时用这里的偏移量和字号微调，改完先看预览。',
+            ),
             child: Column(
               children: [
-                _field('X 偏移', _offsetX, keyboardType: TextInputType.number),
-                _field('Y 偏移', _offsetY, keyboardType: TextInputType.number),
-                _field('字号', _fontSize, keyboardType: TextInputType.number),
+                _field(
+                  'X 偏移',
+                  _offsetX,
+                  keyboardType: TextInputType.number,
+                  helper: '正数向右移，负数向左移（单位：像素）',
+                ),
+                _field(
+                  'Y 偏移',
+                  _offsetY,
+                  keyboardType: TextInputType.number,
+                  helper: '正数向下移，负数向上移（单位：像素）',
+                ),
+                _field(
+                  '字号',
+                  _fontSize,
+                  keyboardType: TextInputType.number,
+                  helper: '基准 24，标签文字太大或太小可调整',
+                ),
               ],
             ),
           ),
           const SizedBox(height: 16),
           ShadCard(
             title: const Text('打印浓度'),
-            description: const Text('B1 为 1~5，Z401 为 1~15'),
-            child: _field('浓度', _density, keyboardType: TextInputType.number),
+            description: const Text('字迹太淡就调大，太深（发糊）就调小。'),
+            child: _field(
+              '浓度',
+              _density,
+              keyboardType: TextInputType.number,
+              helper: 'B1 为 1~5，Z401 为 1~15',
+            ),
           ),
           const SizedBox(height: 16),
           ShadCard(
             title: const Text('打印机设备'),
-            description: Text(controller.statusText),
-            footer: Row(
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                if (controller.isConnected)
-                  ShadButton.outline(
-                    onPressed: () async {
-                      await controller.disconnect();
-                      if (mounted) setState(() {});
-                    },
-                    child: const Text('断开'),
+            description: Text('当前状态：${controller.statusText}'),
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: Wrap(
+                spacing: 8,
+                children: [
+                  ShadButton(
+                    onPressed: _reconnect,
+                    child: const Text('重新连接打印机'),
                   ),
-                const SizedBox(width: 8),
-                ShadButton(
-                  onPressed: _reconnect,
-                  child: const Text('重新连接'),
-                ),
-              ],
+                  if (controller.isConnected)
+                    ShadButton.outline(
+                      onPressed: () async {
+                        await controller.disconnect();
+                        if (mounted) setState(() {});
+                      },
+                      child: const Text('断开连接'),
+                    ),
+                ],
+              ),
             ),
           ),
           const SizedBox(height: 24),
@@ -324,17 +390,33 @@ class _SettingsScreenState extends State<SettingsScreen> {
             width: double.infinity,
             height: 48,
             onPressed: _save,
-            child: const Text('保存'),
+            child: const Text('保存设置'),
           ),
+          const SizedBox(height: 8),
+          const Text(
+            '「保存设置」保存本页的序号、纸张、排版与浓度；产品系列在「管理产品系列」里单独保存。',
+            style: TextStyle(fontSize: 12, color: Colors.black54),
+          ),
+          const SizedBox(height: 24),
         ],
       ),
     );
+  }
+
+  String _prefixPreview(String a, String b, String c) {
+    final parts = <String>[
+      if (a.isNotEmpty) a,
+      if (b.isNotEmpty) b,
+      if (c.isNotEmpty) c,
+    ];
+    return parts.isEmpty ? '（空）' : parts.join(' + ');
   }
 
   Widget _field(
     String label,
     TextEditingController controller, {
     TextInputType? keyboardType,
+    String? helper,
   }) {
     return Padding(
       padding: const EdgeInsets.only(top: 12),
@@ -344,6 +426,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
           Text(label, style: const TextStyle(fontSize: 13)),
           const SizedBox(height: 6),
           ShadInput(controller: controller, keyboardType: keyboardType),
+          if (helper != null) ...[
+            const SizedBox(height: 4),
+            Text(
+              helper,
+              style: const TextStyle(fontSize: 12, color: Colors.black54),
+            ),
+          ],
         ],
       ),
     );

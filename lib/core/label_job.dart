@@ -1,4 +1,5 @@
 import '../models/app_settings.dart';
+import '../models/product_series.dart';
 import 'code_generator.dart';
 
 /// 一次待打印任务的完整内容（不依赖打印机，便于单测）。
@@ -9,6 +10,8 @@ class LabelJob {
     required this.productCode,
     required this.qrContent,
     required this.lines,
+    this.seriesId = '',
+    this.seriesName = '',
     this.isReprint = false,
     this.originalId,
   });
@@ -21,47 +24,50 @@ class LabelJob {
   /// 标签上人眼可见的三行文字。
   final List<String> lines;
 
+  /// 所属产品系列（写入历史用）。
+  final String seriesId;
+  final String seriesName;
+
   final bool isReprint;
   final int? originalId;
 
-  /// 依据设置与配件编号生成一个打印任务。
+  /// 依据当前产品系列与配件编号生成一个打印任务。
   factory LabelJob.build({
-    required AppSettings settings,
+    required ProductSeries series,
     required String accessoryCode,
+    int serialLength = AppSettings.defaultSerialLength,
     CodeGenerator generator = const CodeGenerator(),
-    bool isReprint = false,
-    int? originalId,
   }) {
     final productCode = generator.buildProductCode(
-      prefixA: settings.prefixA,
-      prefixB: settings.prefixB,
-      prefixC: settings.prefixC,
-      serial: settings.serialNumber,
-      serialLength: settings.serialLength,
+      prefixA: series.prefixA,
+      prefixB: series.prefixB,
+      prefixC: series.prefixC,
+      serial: series.serialNumber,
+      serialLength: serialLength,
     );
     final qrContent = generator.buildQrContent(
       productCode: productCode,
       accessoryCode: accessoryCode,
     );
     final lines = generator.buildLabelLines(
-      prefixA: settings.prefixA,
-      prefixB: settings.prefixB,
-      prefixC: settings.prefixC,
-      serial: settings.serialNumber,
-      serialLength: settings.serialLength,
+      prefixA: series.prefixA,
+      prefixB: series.prefixB,
+      prefixC: series.prefixC,
+      serial: series.serialNumber,
+      serialLength: serialLength,
     );
     return LabelJob(
       accessoryCode: accessoryCode,
-      serial: settings.serialNumber,
+      serial: series.serialNumber,
       productCode: productCode,
       qrContent: qrContent,
       lines: lines,
-      isReprint: isReprint,
-      originalId: originalId,
+      seriesId: series.id,
+      seriesName: series.displayName,
     );
   }
 
-  /// 依据一条历史记录构造重打任务。
+  /// 依据一条历史记录构造重打任务（不依赖系列是否还存在）。
   factory LabelJob.fromReused({
     required String accessoryCode,
     required String productCode,
@@ -69,6 +75,8 @@ class LabelJob {
     required String qrContent,
     required List<String> lines,
     required int originalId,
+    String seriesId = '',
+    String seriesName = '',
   }) {
     return LabelJob(
       accessoryCode: accessoryCode,
@@ -76,6 +84,8 @@ class LabelJob {
       productCode: productCode,
       qrContent: qrContent,
       lines: lines,
+      seriesId: seriesId,
+      seriesName: seriesName,
       isReprint: true,
       originalId: originalId,
     );

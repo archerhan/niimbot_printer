@@ -14,10 +14,14 @@ class PrinterApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return AppScope(
       controller: controller,
-      child: const ShadApp(
+      // ShadApp 不带 ScaffoldMessenger，提示改用 shadcn 的 Toast，
+      // 且 ShadToaster 必须位于 ShadApp 内部（需要 ShadTheme）。
+      child: ShadApp(
         title: '标签助手',
         debugShowCheckedModeBanner: false,
-        home: HomeScreen(),
+        builder: (context, child) =>
+            ShadToaster(child: child ?? const SizedBox.shrink()),
+        home: const HomeScreen(),
       ),
     );
   }

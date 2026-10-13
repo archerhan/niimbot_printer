@@ -1,4 +1,3 @@
-import '../core/code_generator.dart';
 import '../core/label_job.dart';
 import '../models/print_record.dart';
 import 'history_repository.dart';
@@ -62,6 +61,8 @@ class PrintService {
       qrContent: job.qrContent,
       success: false,
       labelLines: job.lines,
+      seriesId: job.seriesId,
+      seriesName: job.seriesName,
       isReprint: job.isReprint,
       originalId: job.originalId,
       deviceId: printer.deviceId,
@@ -78,15 +79,5 @@ class PrintService {
       final saved = await history.insert(record);
       return PrintOutcome(success: false, record: saved, error: error);
     }
-  }
-
-  /// 依据设置生成二维码内容（供预览用）。
-  String buildQrContent({required String accessoryCode}) {
-    final job = LabelJob.build(
-      settings: settings.settings,
-      accessoryCode: accessoryCode,
-      generator: const CodeGenerator(),
-    );
-    return job.qrContent;
   }
 }

@@ -11,6 +11,8 @@ void main() {
     qrContent: '!ADM32672805CTX6O60005#MDE:MDE62564302CDFL9D@RESULT:OK',
     success: true,
     labelLines: const <String>['ADM32672805', 'CTX', '6O6-0005'],
+    seriesId: 's1',
+    seriesName: 'E系列',
     isReprint: false,
     deviceId: 'AA:BB:CC',
   );
@@ -23,9 +25,12 @@ void main() {
     expect(restored.accessoryCode, 'MDE62564302CDFL9D');
     expect(restored.serial, 5);
     expect(restored.labelLines, <String>['ADM32672805', 'CTX', '6O6-0005']);
+    expect(restored.seriesId, 's1');
+    expect(restored.seriesName, 'E系列');
     expect(restored.success, isTrue);
     expect(restored.isReprint, isFalse);
     expect(restored.deviceId, 'AA:BB:CC');
+    expect(restored.deleted, isFalse);
   });
 
   test('失败记录成功位为 0', () {
@@ -39,5 +44,11 @@ void main() {
     final map = reprint.toMap();
     expect(map['is_reprint'], 1);
     expect(map['original_id'], 7);
+  });
+
+  test('软删除标记可往返', () {
+    final removed = record.copyWith(deleted: true);
+    expect(removed.toMap()['deleted'], 1);
+    expect(PrintRecord.fromMap(removed.toMap()).deleted, isTrue);
   });
 }

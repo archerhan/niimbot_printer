@@ -1,17 +1,18 @@
+import 'dart:convert';
+
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/app_settings.dart';
+import '../models/product_series.dart';
 
-/// 基于 shared_preferences 的设置读写。
+/// 基于 shared_preferences 的设置读写（含产品系列的增删改切换）。
 class SettingsService {
   SettingsService(this._prefs);
 
   final SharedPreferences _prefs;
 
-  static const String kPrefixA = 'prefixA';
-  static const String kPrefixB = 'prefixB';
-  static const String kPrefixC = 'prefixC';
-  static const String kSerialNumber = 'serialNumber';
+  static const String kSeriesList = 'seriesList';
+  static const String kCurrentSeriesId = 'currentSeriesId';
   static const String kSerialLength = 'serialLength';
   static const String kContinuousMode = 'continuousMode';
   static const String kOffsetX = 'offsetX';
@@ -24,20 +25,23 @@ class SettingsService {
   static const String kLastDeviceId = 'lastDeviceId';
   static const String kLastDeviceName = 'lastDeviceName';
 
+  // 老版本遗留字段，仅用于一次性迁移。
+  static const String kLegacyPrefixA = 'prefixA';
+  static const String kLegacyPrefixB = 'prefixB';
+  static const String kLegacyPrefixC = 'prefixC';
+  static const String kLegacySerialNumber = 'serialNumber';
+
   /// 读取完整设置快照。
   AppSettings get settings => AppSettings(
-        prefixA: _prefs.getString(kPrefixA) ?? AppSettings.defaultPrefixA,
-        prefixB: _prefs.getString(kPrefixB) ?? AppSettings.defaultPrefixB,
-        prefixC: _prefs.getString(kPrefixC) ?? AppSettings.defaultPrefixC,
-        serialNumber:
-            _prefs.getInt(kSerialNumber) ?? AppSettings.defaultSerialNumber,
+        seriesList: seriesList,
+        currentSeriesId: currentSeriesId,
         serialLength:
             _prefs.getInt(kSerialLength) ?? AppSettings.defaultSerialLength,
         continuousMode: _prefs.getBool(kContinuousMode) ?? false,
         offsetX: _prefs.getInt(kOffsetX) ?? 0,
         offsetY: _prefs.getInt(kOffsetY) ?? 0,
-        labelWidthMm: _prefs.getDouble(kLabelWidthMm) ??
-            AppSettings.defaultLabelWidthMm,
+        labelWidthMm:
+            _prefs.getDouble(kLabelWidthMm) ?? AppSettings.defaultLabelWidthMm,
         labelHeightMm: _prefs.getDouble(kLabelHeightMm) ??
             AppSettings.defaultLabelHeightMm,
         labelDpi: _prefs.getInt(kLabelDpi) ?? AppSettings.defaultLabelDpi,
@@ -47,18 +51,78 @@ class SettingsService {
         lastDeviceName: _prefs.getString(kLastDeviceName) ?? '',
       );
 
-  int get serialNumber =>
-      _prefs.getInt(kSerialNumber) ?? AppSettings.defaultSerialNumber;
+  // ---------------------------------------------------------------- 产品系列
 
-  /// 序号 +1（打印成功后调用）。
-  Future<void> incrementSerial() => setSerialNumber(serialNumber + 1);
+  /// 全部产品系列，始终至少返回一个。
+  List<ProductSeries> get seriesList {
+    final raw = _prefs.getString(kSeriesList);
+    if (raw != null && raw.isNotEmpty) {
+      final parsed = _decodeSeries(raw);
+      if (parsed.isNotEmpty) return parsed;
+    }
+    return <ProductSeries>[_legacySeries()];
+  }
 
-  Future<void> setSerialNumber(int value) =>
-      _prefs.setInt(kSerialNumber, value);
+  /// 当前产品系列。
+  ProductSeries get currentSeries => settings.currentSeries;
 
-  Future<void> setPrefixA(String value) => _prefs.setString(kPrefixA, value);
-  Future<void> setPrefixB(String value) => _prefs.setString(kPrefixB, value);
-  Future<void> setPrefixC(String value) => _prefs.setString(kPrefixC, value);
+  /// 当前系列 id；非法或缺失时回退到第一个系列。
+  String get currentSeriesId {
+    final id = _prefs.getString(kCurrentSeriesId);
+    final list = seriesList;
+    if (id != null && list.any((series) => series.id == id)) return id;
+    return list.first.id;
+  }
+
+  /// 老版本升级：把旧的三个前缀 + 序号迁移成一个系列。
+  Future<void> migrateIfNeeded() async {
+    if (_prefs.containsKey(kSeriesList)) return;
+    final series = _legacySeries();
+    await saveSeriesList(<ProductSeries>[series]);
+    await _prefs.setString(kCurrentSeriesId, series.id);
+  }
+
+  Future<void> saveSeriesList(List<ProductSeries> list) async {
+    await _prefs.setString(
+      kSeriesList,
+      jsonEncode(list.map((series) => series.toJson()).toList()),
+    );
+  }
+
+  Future<void> addSeries(ProductSeries series) =>
+      saveSeriesList(<ProductSeries>[...seriesList, series]);
+
+  Future<void> updateSeries(ProductSeries series) {
+    final list =
+        seriesList.map((item) => item.id == series.id ? series : item).toList();
+    return saveSeriesList(list);
+  }
+
+  /// 删除系列。调用方需保证它不是当前系列。
+  Future<void> deleteSeries(String id) async {
+    final list = seriesList.where((series) => series.id != id).toList();
+    if (list.isEmpty) return;
+    await saveSeriesList(list);
+    if (currentSeriesId == id) {
+      await _prefs.setString(kCurrentSeriesId, list.first.id);
+    }
+  }
+
+  Future<void> switchSeries(String id) => _prefs.setString(kCurrentSeriesId, id);
+
+  /// 当前系列序号 +1（打印成功后调用）。
+  Future<void> incrementSerial() async {
+    final current = currentSeries;
+    await updateSeries(current.copyWith(serialNumber: current.serialNumber + 1));
+  }
+
+  /// 手动修正当前系列序号。
+  Future<void> setCurrentSerial(int value) async {
+    final current = currentSeries;
+    await updateSeries(current.copyWith(serialNumber: value));
+  }
+
+  // ------------------------------------------------------------------ 其它项
 
   Future<void> setContinuousMode(bool value) =>
       _prefs.setBool(kContinuousMode, value);
@@ -78,11 +142,31 @@ class SettingsService {
     await _prefs.setString(kLastDeviceName, name);
   }
 
-  /// 修改前缀并重置序号为 1（调用方需先做二次确认）。
-  Future<void> changePrefix({String? a, String? b, String? c}) async {
-    if (a != null) await setPrefixA(a);
-    if (b != null) await setPrefixB(b);
-    if (c != null) await setPrefixC(c);
-    await setSerialNumber(AppSettings.defaultSerialNumber);
+  // ---------------------------------------------------------------- 内部实现
+
+  static List<ProductSeries> _decodeSeries(String raw) {
+    try {
+      final decoded = jsonDecode(raw);
+      if (decoded is! List) return const <ProductSeries>[];
+      return decoded
+          .whereType<Map<Object?, Object?>>()
+          .map((item) => ProductSeries.fromJson(item.cast<String, Object?>()))
+          .toList();
+    } catch (_) {
+      return const <ProductSeries>[];
+    }
   }
+
+  /// 用老字段构造一个系列（迁移与兜底用）。
+  ProductSeries _legacySeries() => ProductSeries(
+        id: 'legacy-default',
+        createdAt: 0,
+        prefixA:
+            _prefs.getString(kLegacyPrefixA) ?? ProductSeries.defaultPrefixA,
+        prefixB:
+            _prefs.getString(kLegacyPrefixB) ?? ProductSeries.defaultPrefixB,
+        prefixC:
+            _prefs.getString(kLegacyPrefixC) ?? ProductSeries.defaultPrefixC,
+        serialNumber: _prefs.getInt(kLegacySerialNumber) ?? 1,
+      );
 }
