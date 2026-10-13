@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:niim_blue_flutter/niim_blue_flutter.dart';
 import 'package:printer/core/label_job.dart';
+import 'package:printer/models/app_settings.dart';
 import 'package:printer/models/product_series.dart';
 import 'package:printer/services/history_repository.dart';
 import 'package:printer/services/label_printer.dart';
@@ -12,6 +13,7 @@ import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 class _FakePrinter implements LabelPrinter {
   bool fail = false;
   int printCount = 0;
+  PrinterTaskPreference? lastTaskPreference;
 
   @override
   bool get isConnected => true;
@@ -20,8 +22,13 @@ class _FakePrinter implements LabelPrinter {
   String? get deviceId => 'FAKE:01';
 
   @override
-  Future<void> printPage(PrintPage page, {required int density}) async {
+  Future<void> printPage(
+    PrintPage page, {
+    required int density,
+    PrinterTaskPreference taskPreference = PrinterTaskPreference.auto,
+  }) async {
     printCount++;
+    lastTaskPreference = taskPreference;
     if (fail) {
       throw Exception('boom');
     }
@@ -133,9 +140,21 @@ void main() {
       series: settings.currentSeries,
       accessoryCode: 'X',
     );
+    expect(job.qrContent, contains('6O6'));
     expect(job.serial, 7);
     final outcome = await service.print(job);
     expect(outcome.success, isTrue);
     expect(settings.currentSeries.serialNumber, 8);
+  });
+
+  test('打印任务偏好会传递给打印机', () async {
+    final job = LabelJob.build(series: settings.currentSeries, accessoryCode: 'X');
+    await service.print(job);
+    expect(printer.lastTaskPreference, PrinterTaskPreference.auto);
+
+    await settings.setPrintTaskPreference(PrinterTaskPreference.b1);
+    final job2 = LabelJob.build(series: settings.currentSeries, accessoryCode: 'Y');
+    await service.print(job2);
+    expect(printer.lastTaskPreference, PrinterTaskPreference.b1);
   });
 }

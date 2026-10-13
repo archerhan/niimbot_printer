@@ -21,11 +21,13 @@ class SettingsService {
   static const String kLabelHeightMm = 'labelHeightMm';
   static const String kLabelDpi = 'labelDpi';
   static const String kFontSize = 'fontSize';
+  static const String kQrSizeMm = 'qrSizeMm';
   static const String kDensity = 'density';
   static const String kLastDeviceId = 'lastDeviceId';
   static const String kLastDeviceName = 'lastDeviceName';
+  static const String kPrintTask = 'printTask';
 
-  // 老版本遗留字段，仅用于一次性迁移。
+  // 老版本遗留字段（全局前缀 + 序号），仅用于一次性迁移。
   static const String kLegacyPrefixA = 'prefixA';
   static const String kLegacyPrefixB = 'prefixB';
   static const String kLegacyPrefixC = 'prefixC';
@@ -46,9 +48,13 @@ class SettingsService {
             AppSettings.defaultLabelHeightMm,
         labelDpi: _prefs.getInt(kLabelDpi) ?? AppSettings.defaultLabelDpi,
         fontSize: _prefs.getDouble(kFontSize) ?? AppSettings.defaultFontSize,
+        qrSizeMm: _prefs.getDouble(kQrSizeMm) ?? AppSettings.defaultQrSizeMm,
         density: _prefs.getInt(kDensity) ?? AppSettings.defaultDensity,
         lastDeviceId: _prefs.getString(kLastDeviceId) ?? '',
         lastDeviceName: _prefs.getString(kLastDeviceName) ?? '',
+        printTaskPreference: PrinterTaskPreference.fromKey(
+          _prefs.getString(kPrintTask),
+        ),
       );
 
   // ---------------------------------------------------------------- 产品系列
@@ -74,7 +80,7 @@ class SettingsService {
     return list.first.id;
   }
 
-  /// 老版本升级：把旧的三个前缀 + 序号迁移成一个系列。
+  /// 老版本升级：把旧的全局前缀 + 序号迁移成一个系列。
   Future<void> migrateIfNeeded() async {
     if (_prefs.containsKey(kSeriesList)) return;
     final series = _legacySeries();
@@ -135,12 +141,17 @@ class SettingsService {
       _prefs.setDouble(kLabelHeightMm, value);
   Future<void> setLabelDpi(int value) => _prefs.setInt(kLabelDpi, value);
   Future<void> setFontSize(double value) => _prefs.setDouble(kFontSize, value);
+  Future<void> setQrSizeMm(double value) => _prefs.setDouble(kQrSizeMm, value);
   Future<void> setDensity(int value) => _prefs.setInt(kDensity, value);
 
   Future<void> setLastDevice({required String id, required String name}) async {
     await _prefs.setString(kLastDeviceId, id);
     await _prefs.setString(kLastDeviceName, name);
   }
+
+  /// 打印任务偏好（兼容性设置，立即生效）。
+  Future<void> setPrintTaskPreference(PrinterTaskPreference value) =>
+      _prefs.setString(kPrintTask, value.key);
 
   // ---------------------------------------------------------------- 内部实现
 

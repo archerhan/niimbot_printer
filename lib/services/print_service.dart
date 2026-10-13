@@ -7,11 +7,7 @@ import 'settings_service.dart';
 
 /// 一次打印的结果。
 class PrintOutcome {
-  const PrintOutcome({
-    required this.success,
-    required this.record,
-    this.error,
-  });
+  const PrintOutcome({required this.success, required this.record, this.error});
 
   final bool success;
   final PrintRecord record;
@@ -50,6 +46,7 @@ class PrintService {
       offsetX: s.offsetX,
       offsetY: s.offsetY,
       fontSize: s.fontSize.round(),
+      qrSize: s.qrSizePx,
     );
 
     final createdAt = (now ?? DateTime.now)();
@@ -69,7 +66,11 @@ class PrintService {
     );
 
     try {
-      await printer.printPage(page, density: s.density);
+      await printer.printPage(
+        page,
+        density: s.density,
+        taskPreference: s.printTaskPreference,
+      );
       final saved = await history.insert(record.copyWith(success: true));
       if (!job.isReprint) {
         await settings.incrementSerial();

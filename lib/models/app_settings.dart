@@ -1,5 +1,33 @@
 import 'product_series.dart';
 
+/// 打印任务偏好（兼容性设置）。
+///
+/// 部分型号不在 niim_blue_flutter 的自动识别映射表中（如 Z401/B32 系列），
+/// 自动兜底任务工作不正常时，可在此手动指定。
+enum PrinterTaskPreference {
+  auto('auto', '自动（推荐）'),
+  b1('b1', 'B1'),
+  d110mV4('d110mV4', 'D110M_V4'),
+  d110('d110', 'D110'),
+  b21V1('b21V1', 'B21_V1'),
+  d11V1('d11V1', 'D11_V1');
+
+  const PrinterTaskPreference(this.key, this.label);
+
+  /// 持久化用的字符串键。
+  final String key;
+
+  /// 界面显示名。
+  final String label;
+
+  static PrinterTaskPreference fromKey(String? key) {
+    for (final value in values) {
+      if (value.key == key) return value;
+    }
+    return auto;
+  }
+}
+
 /// 应用设置快照。
 class AppSettings {
   const AppSettings({
@@ -13,14 +41,17 @@ class AppSettings {
     this.labelHeightMm = defaultLabelHeightMm,
     this.labelDpi = defaultLabelDpi,
     this.fontSize = defaultFontSize,
+    this.qrSizeMm = defaultQrSizeMm,
     this.density = defaultDensity,
     this.lastDeviceId = '',
     this.lastDeviceName = '',
+    this.printTaskPreference = PrinterTaskPreference.auto,
   });
 
   static const int defaultSerialLength = 4;
-  static const double defaultFontSize = 24;
-  static const int defaultDensity = 3;
+  static const double defaultFontSize = 30;
+  static const double defaultQrSizeMm = 12;
+  static const int defaultDensity = 12;
   static const double defaultLabelWidthMm = 40;
   static const double defaultLabelHeightMm = 20;
   static const int defaultLabelDpi = 300;
@@ -39,9 +70,13 @@ class AppSettings {
   final double labelHeightMm;
   final int labelDpi;
   final double fontSize;
+
+  /// 二维码边长（毫米）。渲染时会自动限制，保证不超出纸张。
+  final double qrSizeMm;
   final int density;
   final String lastDeviceId;
   final String lastDeviceName;
+  final PrinterTaskPreference printTaskPreference;
 
   /// 当前产品系列。列表为空或 id 找不到时回退（正常情况下不会发生）。
   ProductSeries get currentSeries {
@@ -58,6 +93,9 @@ class AppSettings {
   /// 纸张高度（像素/打印点）。
   int get labelHeightPx => (labelHeightMm * labelDpi / 25.4).round();
 
+  /// 二维码边长（像素/打印点）。
+  int get qrSizePx => (qrSizeMm * labelDpi / 25.4).round();
+
   AppSettings copyWith({
     List<ProductSeries>? seriesList,
     String? currentSeriesId,
@@ -69,9 +107,11 @@ class AppSettings {
     double? labelHeightMm,
     int? labelDpi,
     double? fontSize,
+    double? qrSizeMm,
     int? density,
     String? lastDeviceId,
     String? lastDeviceName,
+    PrinterTaskPreference? printTaskPreference,
   }) {
     return AppSettings(
       seriesList: seriesList ?? this.seriesList,
@@ -84,9 +124,11 @@ class AppSettings {
       labelHeightMm: labelHeightMm ?? this.labelHeightMm,
       labelDpi: labelDpi ?? this.labelDpi,
       fontSize: fontSize ?? this.fontSize,
+      qrSizeMm: qrSizeMm ?? this.qrSizeMm,
       density: density ?? this.density,
       lastDeviceId: lastDeviceId ?? this.lastDeviceId,
       lastDeviceName: lastDeviceName ?? this.lastDeviceName,
+      printTaskPreference: printTaskPreference ?? this.printTaskPreference,
     );
   }
 }

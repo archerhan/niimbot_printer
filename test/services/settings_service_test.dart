@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:printer/models/app_settings.dart';
 import 'package:printer/models/product_series.dart';
 import 'package:printer/services/settings_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -21,13 +22,16 @@ void main() {
     expect(series.prefixC, '6O6');
     expect(series.serialNumber, 1);
     expect(s.continuousMode, isFalse);
-    expect(s.density, 3);
+    expect(s.density, 12);
+    expect(s.fontSize, 30);
+    expect(s.qrSizeMm, 12);
     expect(s.labelWidthMm, 40);
     expect(s.labelHeightMm, 20);
     expect(s.labelDpi, 300);
     // 40 × 20 mm @ 300dpi
     expect(s.labelWidthPx, 472);
     expect(s.labelHeightPx, 236);
+    expect(s.printTaskPreference, PrinterTaskPreference.auto);
   });
 
   test('迁移：老版本的全局前缀与序号转成一个系列', () async {
@@ -129,9 +133,25 @@ void main() {
     expect(service.settings.labelWidthPx, 320);
   });
 
+  test('可读写二维码尺寸（毫米）', () async {
+    await service.setQrSizeMm(15);
+    expect(service.settings.qrSizeMm, 15);
+    // 15mm @ 300dpi ≈ 177 像素
+    expect(service.settings.qrSizePx, 177);
+  });
+
   test('设备信息可持久化', () async {
     await service.setLastDevice(id: 'AA:BB', name: 'Z401');
     expect(service.settings.lastDeviceId, 'AA:BB');
     expect(service.settings.lastDeviceName, 'Z401');
+  });
+
+  test('打印任务偏好可读写，非法值回退 auto', () async {
+    await service.setPrintTaskPreference(PrinterTaskPreference.d110mV4);
+    expect(service.settings.printTaskPreference, PrinterTaskPreference.d110mV4);
+    await service.setPrintTaskPreference(PrinterTaskPreference.b21V1);
+    expect(service.settings.printTaskPreference, PrinterTaskPreference.b21V1);
+    expect(PrinterTaskPreference.fromKey('bogus'), PrinterTaskPreference.auto);
+    expect(PrinterTaskPreference.fromKey(null), PrinterTaskPreference.auto);
   });
 }

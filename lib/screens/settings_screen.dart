@@ -3,12 +3,15 @@ import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 import 'package:shadcn_ui/shadcn_ui.dart';
 
 import '../core/code_generator.dart';
+import '../models/app_settings.dart';
+import '../services/label_printer.dart';
+import '../services/label_renderer.dart';
 import '../services/permission_service.dart';
+import '../state/app_controller.dart';
 import '../state/app_scope.dart';
 import '../widgets/app_dialogs.dart';
 import 'series_list_screen.dart';
 
-/// 设置页：产品系列入口 + 序号 + 打印相关参数。
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
 
@@ -20,13 +23,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
   final TextEditingController _serial = TextEditingController();
   final TextEditingController _offsetX = TextEditingController();
   final TextEditingController _offsetY = TextEditingController();
-  final TextEditingController _fontSize = TextEditingController();
-  final TextEditingController _density = TextEditingController();
   final TextEditingController _labelWidthMm = TextEditingController();
   final TextEditingController _labelHeightMm = TextEditingController();
   final TextEditingController _labelDpi = TextEditingController();
-
+  final TextEditingController _fontSize = TextEditingController();
+  final TextEditingController _qrSizeMm = TextEditingController();
+  final TextEditingController _density = TextEditingController();
   bool _continuous = false;
+  bool _testing = false;
   bool _initialized = false;
 
   @override
@@ -38,48 +42,35 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   void _loadFromSettings() {
-    final controller = AppScope.of(context);
-    final s = controller.settings.settings;
+    final s = AppScope.of(context).settings.settings;
     _serial.text = s.currentSeries.serialNumber.toString();
     _offsetX.text = s.offsetX.toString();
     _offsetY.text = s.offsetY.toString();
-    _fontSize.text = s.fontSize.toStringAsFixed(0);
-    _density.text = s.density.toString();
     _labelWidthMm.text = _fmt(s.labelWidthMm);
     _labelHeightMm.text = _fmt(s.labelHeightMm);
     _labelDpi.text = s.labelDpi.toString();
+    _fontSize.text = s.fontSize.toStringAsFixed(0);
+    _qrSizeMm.text = _fmt(s.qrSizeMm);
+    _density.text = s.density.toString();
     _continuous = s.continuousMode;
   }
 
   @override
   void dispose() {
-    for (final controller in <TextEditingController>[
+    for (final c in <TextEditingController>[
       _serial,
       _offsetX,
       _offsetY,
-      _fontSize,
-      _density,
       _labelWidthMm,
       _labelHeightMm,
       _labelDpi,
+      _fontSize,
+      _qrSizeMm,
+      _density,
     ]) {
-      controller.dispose();
+      c.dispose();
     }
     super.dispose();
-  }
-
-  String _fmt(double value) {
-    final text = value.toStringAsFixed(1);
-    return text.endsWith('.0') ? text.substring(0, text.length - 2) : text;
-  }
-
-  Future<void> _openSeriesManager() async {
-    await Navigator.of(context).push<void>(
-      MaterialPageRoute<void>(builder: (_) => const SeriesListScreen()),
-    );
-    if (!mounted) return;
-    // 系列可能已切换或序号已变，重新载入表单。
-    setState(_loadFromSettings);
   }
 
   Future<void> _reconnect() async {
@@ -113,7 +104,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       await showAlert(
         context,
         title: '未找到打印机',
-        message: '请确认打印机已开机、蓝牙已开启，并处于配对状态。',
+        message: '请确认 B1 已开机、蓝牙已开启，并处于配对状态。',
       );
       return;
     }
@@ -132,6 +123,79 @@ class _SettingsScreenState extends State<SettingsScreen> {
     if (mounted) setState(() {});
   }
 
+  String _fmt(double value) {
+    final text = value.toStringAsFixed(1);
+    return text.endsWith('.0') ? text.substring(0, text.length - 2) : text;
+  }
+
+  Future<void> _openSeriesManager() async {
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute<void>(builder: (_) => const SeriesListScreen()),
+    );
+    if (!mounted) return;
+    // 系列可能已切换或序号已变，重新载入表单。
+    setState(_loadFromSettings);
+  }
+
+  String _prefixPreview(String a, String b, String c) {
+    final parts = <String>[
+      if (a.isNotEmpty) a,
+      if (b.isNotEmpty) b,
+      if (c.isNotEmpty) c,
+    ];
+    return parts.isEmpty ? '（空）' : parts.join(' + ');
+  }
+
+  Future<void> _testPrint() async {
+    final controller = AppScope.of(context);
+    if (!controller.isConnected) {
+      await showAlert(context, title: '打印机未连接', message: '请先连接打印机后再测试。');
+      return;
+    }
+
+    final s = controller.settings.settings;
+    setState(() => _testing = true);
+    try {
+      final page = await const LabelRenderer().buildPage(
+        qrContent: '!TEST#MDE:TEST@RESULT:OK',
+        lines: const <String>['TEST', 'TEST', 'TEST-0000'],
+        pageWidth: s.labelWidthPx,
+        pageHeight: s.labelHeightPx,
+        offsetX: s.offsetX,
+        offsetY: s.offsetY,
+        fontSize: s.fontSize.round(),
+        qrSize: s.qrSizePx,
+      );
+      await controller.printer.printPage(
+        page,
+        density: s.density,
+        taskPreference: s.printTaskPreference,
+      );
+      if (mounted) {
+        await showAlert(
+          context,
+          title: '测试打印完成',
+          message:
+              '任务：${controller.printer.lastPrintTask}'
+              '（${controller.printer.lastPrintTaskReason}）',
+        );
+      }
+    } catch (error) {
+      if (mounted) {
+        await showAlert(
+          context,
+          title: '测试打印失败',
+          message:
+              '${describePrinterError(error)}\n\n'
+              '任务：${controller.printer.lastPrintTask}'
+              '（${controller.printer.lastPrintTaskReason}）',
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _testing = false);
+    }
+  }
+
   Future<void> _save() async {
     final controller = AppScope.of(context);
     final old = controller.settings.settings;
@@ -145,24 +209,20 @@ class _SettingsScreenState extends State<SettingsScreen> {
       );
       return;
     }
+    await controller.settings.setCurrentSerial(serial);
+
+    await controller.settings.setContinuousMode(_continuous);
+    if (!mounted) return;
 
     final labelWidthMm = double.tryParse(_labelWidthMm.text.trim());
     final labelHeightMm = double.tryParse(_labelHeightMm.text.trim());
     final labelDpi = int.tryParse(_labelDpi.text.trim());
     if (labelWidthMm == null || labelWidthMm < 5 || labelWidthMm > 120) {
-      await showAlert(
-        context,
-        title: '纸张宽度无效',
-        message: '宽度需为 5 ~ 120 毫米。',
-      );
+      await showAlert(context, title: '纸张宽度无效', message: '宽度需为 5 ~ 120 毫米。');
       return;
     }
     if (labelHeightMm == null || labelHeightMm < 5 || labelHeightMm > 500) {
-      await showAlert(
-        context,
-        title: '纸张高度无效',
-        message: '高度需为 5 ~ 500 毫米。',
-      );
+      await showAlert(context, title: '纸张高度无效', message: '高度需为 5 ~ 500 毫米。');
       return;
     }
     if (labelDpi == null || labelDpi < 100 || labelDpi > 600) {
@@ -173,6 +233,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
       );
       return;
     }
+    await controller.settings.setLabelWidthMm(labelWidthMm);
+    await controller.settings.setLabelHeightMm(labelHeightMm);
+    await controller.settings.setLabelDpi(labelDpi);
+    if (!mounted) return;
 
     final density = int.tryParse(_density.text.trim());
     if (density == null || density < 1 || density > 15) {
@@ -183,29 +247,40 @@ class _SettingsScreenState extends State<SettingsScreen> {
       );
       return;
     }
+    await controller.settings.setDensity(density);
 
-    final fontSize = double.tryParse(_fontSize.text.trim());
-    if (fontSize == null || fontSize < 8 || fontSize > 200) {
+    await controller.settings.setOffsetX(
+      int.tryParse(_offsetX.text.trim()) ?? old.offsetX,
+    );
+    await controller.settings.setOffsetY(
+      int.tryParse(_offsetY.text.trim()) ?? old.offsetY,
+    );
+    if (!mounted) return;
+
+    final qrSizeMm = double.tryParse(_qrSizeMm.text.trim());
+    if (qrSizeMm == null || qrSizeMm < 3 || qrSizeMm > 100) {
       await showAlert(
         context,
-        title: '字号无效',
-        message: '字号需为 8 ~ 200。',
+        title: '二维码尺寸无效',
+        message:
+            '二维码边长需为 3 ~ 100 毫米。\n'
+            '（过大时会自动限制，保证不超出纸张并与文字保持间距）',
       );
       return;
     }
+    await controller.settings.setQrSizeMm(qrSizeMm);
+    if (!mounted) return;
 
-    await controller.settings.setCurrentSerial(serial);
-    await controller.settings.setContinuousMode(_continuous);
-    await controller.settings.setLabelWidthMm(labelWidthMm);
-    await controller.settings.setLabelHeightMm(labelHeightMm);
-    await controller.settings.setLabelDpi(labelDpi);
-    await controller.settings
-        .setOffsetX(int.tryParse(_offsetX.text.trim()) ?? old.offsetX);
-    await controller.settings
-        .setOffsetY(int.tryParse(_offsetY.text.trim()) ?? old.offsetY);
+    final fontSize = double.tryParse(_fontSize.text.trim());
+    if (fontSize == null || fontSize < 6 || fontSize > 200) {
+      await showAlert(
+        context,
+        title: '字号无效',
+        message: '字号需为 6 ~ 200。\n（过大时会自动缩小，保证每行完整显示）',
+      );
+      return;
+    }
     await controller.settings.setFontSize(fontSize);
-    await controller.settings.setDensity(density);
-
     if (!mounted) return;
     await showAlert(context, title: '已保存');
     if (mounted) Navigator.of(context).pop();
@@ -214,9 +289,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   @override
   Widget build(BuildContext context) {
     final controller = AppScope.of(context);
-    final settings = controller.settings.settings;
-    final series = settings.currentSeries;
-
+    final series = controller.settings.settings.currentSeries;
     return Scaffold(
       appBar: AppBar(title: const Text('设置')),
       body: ListView(
@@ -225,34 +298,30 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ShadCard(
             title: const Text('产品系列'),
             description: const Text(
-              '产品编号 = 前缀 A + 前缀 B + 前缀 C + 序号。\n'
-              '不同产品系列的前缀不同，这里可以新增、修改、删除和切换。',
+              '产品编号 = 前缀 A + 前缀 B + 前缀 C + 序号，'
+              '三段前缀对应标签右侧第 1 / 2 / 3 行文字（第 3 行带「-序号」）。\n'
+              '不同产品系列的前缀不同，可预置多套并随时切换；'
+              '每个系列有自己的序号，切换不会重置。',
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('当前系列', style: TextStyle(fontSize: 12)),
-                const SizedBox(height: 4),
                 Text(
-                  series.displayName,
+                  '当前系列：${series.displayName}',
                   style: const TextStyle(
-                    fontSize: 16,
+                    fontSize: 15,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  '前缀：${_prefixPreview(series.prefixA, series.prefixB, series.prefixC)}'
-                  '　序号：${series.serialNumber.toString().padLeft(settings.serialLength, '0')}',
+                  '前缀：${_prefixPreview(series.prefixA, series.prefixB, series.prefixC)}',
                   style: const TextStyle(fontSize: 12, color: Colors.black54),
                 ),
                 const SizedBox(height: 12),
-                Align(
-                  alignment: Alignment.centerLeft,
-                  child: ShadButton.outline(
-                    onPressed: _openSeriesManager,
-                    child: const Text('管理产品系列'),
-                  ),
+                ShadButton.outline(
+                  onPressed: _openSeriesManager,
+                  child: const Text('管理产品系列'),
                 ),
               ],
             ),
@@ -261,28 +330,21 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ShadCard(
             title: const Text('当前系列序号'),
             description: const Text(
-              '下一次打印使用的序号，打印成功后会 +1。\n'
-              '序号按系列各自记录，切换系列不会重置。',
+              '打印成功后自动 +1（范围 1 ~ 9999）；'
+              '若当前序号与上次成功打印不连续，打印前会弹跳号警告。\n'
+              '序号按系列各自记录，可在此手动修正当前系列。',
             ),
-            child: _field(
-              '序号',
-              _serial,
-              keyboardType: TextInputType.number,
-              helper: '范围 1 ~ ${CodeGenerator.maxSerial}',
-            ),
+            child: _field('当前序号', _serial, keyboardType: TextInputType.number),
           ),
           const SizedBox(height: 16),
           ShadCard(
             title: const Text('连续模式'),
-            description: const Text(
-              '开启后，扫到配件码会跳过预览直接打印；\n'
-              '打印失败或断连时会自动暂停并提示。',
-            ),
+            description: const Text('开启后扫码直接打印，跳过预览；打印失败会自动暂停并提示。'),
             child: Align(
               alignment: Alignment.centerLeft,
               child: ShadSwitch(
                 value: _continuous,
-                onChanged: (value) => setState(() => _continuous = value),
+                onChanged: (v) => setState(() => _continuous = v),
               ),
             ),
           ),
@@ -290,8 +352,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ShadCard(
             title: const Text('打印纸尺寸'),
             description: const Text(
-              '填实际标签纸的毫米尺寸，预览与打印都按它换算。\n'
-              'DPI 由打印机型号决定：B1 为 203，Z401 为 300（连接后自动识别）。',
+              '请按实际标签纸填写（单位：毫米），预览与打印都按此尺寸排版。\n'
+              '换算：像素 = 毫米 × DPI ÷ 25.4；DPI 连接打印机后自动识别'
+              '（B1 为 203，Z401 为 300）。',
             ),
             child: Column(
               children: [
@@ -301,7 +364,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   keyboardType: const TextInputType.numberWithOptions(
                     decimal: true,
                   ),
-                  helper: '例如 40',
                 ),
                 _field(
                   '高度（毫米）',
@@ -309,14 +371,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   keyboardType: const TextInputType.numberWithOptions(
                     decimal: true,
                   ),
-                  helper: '例如 20',
                 ),
-                _field(
-                  'DPI',
-                  _labelDpi,
-                  keyboardType: TextInputType.number,
-                  helper: '每英寸打印点数，连接打印机后会自动更新',
-                ),
+                _field('DPI', _labelDpi, keyboardType: TextInputType.number),
               ],
             ),
           ),
@@ -324,27 +380,40 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ShadCard(
             title: const Text('标签排版微调'),
             description: const Text(
-              '打印位置有偏差时用这里的偏移量和字号微调，改完先看预览。',
+              '内容默认在纸张内自动居中，二维码与文字均不会贴边；'
+              '以下参数用于现场校正，保存后可用「打印测试页」查看效果。',
             ),
             child: Column(
               children: [
                 _field(
-                  'X 偏移',
-                  _offsetX,
-                  keyboardType: TextInputType.number,
-                  helper: '正数向右移，负数向左移（单位：像素）',
-                ),
-                _field(
-                  'Y 偏移',
-                  _offsetY,
-                  keyboardType: TextInputType.number,
-                  helper: '正数向下移，负数向上移（单位：像素）',
+                  '二维码尺寸（毫米）',
+                  _qrSizeMm,
+                  keyboardType: const TextInputType.numberWithOptions(
+                    decimal: true,
+                  ),
+                  hint: '二维码边长。过大时会自动限制：不超出纸张，并给右侧文字留出空间。',
                 ),
                 _field(
                   '字号',
                   _fontSize,
                   keyboardType: TextInputType.number,
-                  helper: '基准 24，标签文字太大或太小可调整',
+                  hint:
+                      '文字大小（以 384×240 像素为基准随纸张等比缩放）。'
+                      '过大时会自动缩小，保证每行完整显示、不超出纸张。',
+                ),
+                _field(
+                  'X 偏移',
+                  _offsetX,
+                  keyboardType: TextInputType.number,
+                  hint:
+                      '整张标签内容水平微调：正值向右移，负值向左移。'
+                      '单位是打印点（300 DPI 下约 0.085 毫米/点）。',
+                ),
+                _field(
+                  'Y 偏移',
+                  _offsetY,
+                  keyboardType: TextInputType.number,
+                  hint: '整张标签内容垂直微调：正值向下移，负值向上移。单位同上。',
                 ),
               ],
             ),
@@ -352,71 +421,171 @@ class _SettingsScreenState extends State<SettingsScreen> {
           const SizedBox(height: 16),
           ShadCard(
             title: const Text('打印浓度'),
-            description: const Text('字迹太淡就调大，太深（发糊）就调小。'),
-            child: _field(
-              '浓度',
-              _density,
-              keyboardType: TextInputType.number,
-              helper: 'B1 为 1~5，Z401 为 1~15',
+            description: const Text(
+              '数值越大打印颜色越深（可影响条码/二维码识别清晰度）。\n'
+              'B1 建议 1~5，Z401 建议 1~15（默认 12）。',
             ),
+            child: _field('浓度', _density, keyboardType: TextInputType.number),
           ),
           const SizedBox(height: 16),
           ShadCard(
             title: const Text('打印机设备'),
-            description: Text('当前状态：${controller.statusText}'),
-            child: Align(
-              alignment: Alignment.centerLeft,
-              child: Wrap(
-                spacing: 8,
-                children: [
-                  ShadButton(
-                    onPressed: _reconnect,
-                    child: const Text('重新连接打印机'),
+            description: Text(controller.statusText),
+            footer: Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                if (controller.isConnected)
+                  ShadButton.outline(
+                    onPressed: () async {
+                      await controller.disconnect();
+                      if (mounted) setState(() {});
+                    },
+                    child: const Text('断开'),
                   ),
-                  if (controller.isConnected)
-                    ShadButton.outline(
-                      onPressed: () async {
-                        await controller.disconnect();
-                        if (mounted) setState(() {});
-                      },
-                      child: const Text('断开连接'),
-                    ),
-                ],
-              ),
+                const SizedBox(width: 8),
+                ShadButton(onPressed: _reconnect, child: const Text('重新连接')),
+              ],
             ),
           ),
+          const SizedBox(height: 16),
+          _compatCard(controller),
+          const SizedBox(height: 16),
+          _diagnosticsCard(controller),
           const SizedBox(height: 24),
           ShadButton(
             width: double.infinity,
             height: 48,
             onPressed: _save,
-            child: const Text('保存设置'),
+            child: const Text('保存'),
           ),
-          const SizedBox(height: 8),
-          const Text(
-            '「保存设置」保存本页的序号、纸张、排版与浓度；产品系列在「管理产品系列」里单独保存。',
-            style: TextStyle(fontSize: 12, color: Colors.black54),
-          ),
-          const SizedBox(height: 24),
         ],
       ),
     );
   }
 
-  String _prefixPreview(String a, String b, String c) {
-    final parts = <String>[
-      if (a.isNotEmpty) a,
-      if (b.isNotEmpty) b,
-      if (c.isNotEmpty) c,
-    ];
-    return parts.isEmpty ? '（空）' : parts.join(' + ');
+  /// 打印任务手动切换（兼容性设置，立即生效）。
+  Widget _compatCard(AppController controller) {
+    final current = controller.settings.settings.printTaskPreference;
+    final diag = controller.printer.diagnostics(preference: current);
+    return ShadCard(
+      title: const Text('打印任务（兼容性）'),
+      description: const Text(
+        '部分型号（如 Z401/B32 系列）不在打印库的自动识别表中，'
+        '将使用兜底任务。若打印异常，可在此逐个切换任务后测试打印。',
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              for (final option in PrinterTaskPreference.values)
+                if (option == current)
+                  ShadButton(onPressed: null, child: Text(option.label))
+                else
+                  ShadButton.outline(
+                    onPressed: () async {
+                      await controller.settings.setPrintTaskPreference(option);
+                      if (mounted) setState(() {});
+                    },
+                    child: Text(option.label),
+                  ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Text(
+            '当前将使用：${diag.resolvedTask}（${diag.resolvedReason}）',
+            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// 打印机诊断信息（排查用）。
+  Widget _diagnosticsCard(AppController controller) {
+    final diag = controller.printer.diagnostics(
+      preference: controller.settings.settings.printTaskPreference,
+    );
+    final printer = controller.printer;
+    return ShadCard(
+      title: const Text('打印机诊断'),
+      description: Text(
+        controller.isConnected
+            ? '连接信息与当前任务解析结果；详细日志见运行控制台（标签见 [标签助手]）'
+            : '打印机未连接时显示的是上次连接的信息',
+      ),
+      footer: Row(
+        mainAxisAlignment: MainAxisAlignment.end,
+        children: [
+          ShadButton.outline(
+            onPressed: () => setState(() {}),
+            child: const Text('刷新信息'),
+          ),
+          const SizedBox(width: 8),
+          ShadButton(
+            onPressed: _testing ? null : _testPrint,
+            child: const Text('打印测试页'),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _diagRow('设备', diag.deviceName ?? '-'),
+          _diagRow(
+            '型号',
+            '${diag.modelName ?? '未知'}（ID ${diag.modelId ?? '-'}）',
+          ),
+          _diagRow(
+            'DPI / 打印头',
+            '${diag.dpi ?? '-'} dpi / ${diag.printheadPixels ?? '-'} px',
+          ),
+          _diagRow('协议版本', '${diag.protocolVersion ?? '-'}'),
+          _diagRow('连接结果', diag.connectResult ?? '-'),
+          _diagRow(
+            '软件 / 硬件',
+            '${diag.softwareVersion ?? '-'} / ${diag.hardwareVersion ?? '-'}',
+          ),
+          _diagRow('序列号', diag.serial ?? '-'),
+          _diagRow('自动识别任务', diag.detectedTask ?? '未识别'),
+          if (printer.lastPrintTask != null)
+            _diagRow(
+              '最近打印',
+              '${printer.lastPrintTask}（${printer.lastPrintTaskReason}）',
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _diagRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 8),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 120,
+            child: Text(
+              label,
+              style: const TextStyle(fontSize: 13, color: Colors.black54),
+            ),
+          ),
+          Expanded(
+            child: SelectableText(value, style: const TextStyle(fontSize: 13)),
+          ),
+        ],
+      ),
+    );
   }
 
   Widget _field(
     String label,
     TextEditingController controller, {
     TextInputType? keyboardType,
-    String? helper,
+    String? hint,
   }) {
     return Padding(
       padding: const EdgeInsets.only(top: 12),
@@ -426,10 +595,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
           Text(label, style: const TextStyle(fontSize: 13)),
           const SizedBox(height: 6),
           ShadInput(controller: controller, keyboardType: keyboardType),
-          if (helper != null) ...[
+          if (hint != null) ...[
             const SizedBox(height: 4),
             Text(
-              helper,
+              hint,
               style: const TextStyle(fontSize: 12, color: Colors.black54),
             ),
           ],
